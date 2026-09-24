@@ -3,7 +3,10 @@ import { Router } from "express";
 import authenticate from "../middleware/auth.middleware.js";
 import requireRole from "../middleware/role.middleware.js";
 
-import { getAnalyticsSummary } from "../controllers/analytics.controller.js";
+import {
+  getAnalyticsSummary,
+  getProductDataQuality,
+} from "../controllers/analytics.controller.js";
 
 const router = Router();
 
@@ -14,5 +17,7 @@ router.use(authenticate);
 router.use(requireRole("ADMIN"));
 
 router.get("/summary", getAnalyticsSummary);
+
+router.get("/product-quality", getProductDataQuality);
 
 export default router;

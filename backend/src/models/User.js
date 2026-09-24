@@ -34,7 +34,14 @@ const userSchema = new mongoose.Schema(
 
     phone: {
       type: String,
+      required: true,
+      unique: true,
       trim: true,
+      validate: {
+        validator: (value) => /^09\d{9}$/.test(value),
+        message:
+          "Phone number must be a valid 11-digit Philippine mobile number starting with 09.",
+      },
     },
 
     role: {

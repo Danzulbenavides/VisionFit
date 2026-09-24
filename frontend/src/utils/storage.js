@@ -3,6 +3,22 @@ import * as SecureStore from "expo-secure-store";
 const TOKEN_KEY = "visionfit_token";
 const USER_KEY = "visionfit_user";
 
+const FACE_SCAN_CONSENT_KEY = "visionfit_face_scan_consent";
+
+export const saveFaceScanConsent = async () => {
+  await SecureStore.setItemAsync(FACE_SCAN_CONSENT_KEY, "true");
+};
+
+export const getFaceScanConsent = async () => {
+  const value = await SecureStore.getItemAsync(FACE_SCAN_CONSENT_KEY);
+
+  return value === "true";
+};
+
+export const removeFaceScanConsent = async () => {
+  await SecureStore.deleteItemAsync(FACE_SCAN_CONSENT_KEY);
+};
+
 export const saveToken = async (token) => {
   await SecureStore.setItemAsync(TOKEN_KEY, token);
 };

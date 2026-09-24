@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://192.168.100.140:5000/api";
+const API_URL = "http://localhost:5000/api";
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -10,7 +10,7 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("adminToken");
+  const token = sessionStorage.getItem("adminToken");
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

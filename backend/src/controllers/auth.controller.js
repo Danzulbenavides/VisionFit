@@ -2,21 +2,29 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 import User from "../models/User.js";
-
 import { requireFields } from "../utils/validation.js";
+import { recordAuditLog } from "./auditLog.controller.js";
 
 export const register = async (req, res) => {
   try {
     const { firstName, lastName, email, password, phone } = req.body;
 
     // Basic required-field validation
-    requireFields(req.body, ["firstName", "lastName", "email", "password"]);
+    requireFields(req.body, [
+      "firstName",
+      "lastName",
+      "email",
+      "password",
+      "phone",
+    ]);
 
+    // Validate input types
     if (
       typeof firstName !== "string" ||
       typeof lastName !== "string" ||
       typeof email !== "string" ||
-      typeof password !== "string"
+      typeof password !== "string" ||
+      typeof phone !== "string"
     ) {
       return res.status(400).json({
         data: null,
@@ -26,6 +34,7 @@ export const register = async (req, res) => {
       });
     }
 
+    // Validate email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return res.status(400).json({
         data: null,
@@ -35,11 +44,33 @@ export const register = async (req, res) => {
       });
     }
 
-    if (password.length < 8) {
+    // Normalize names
+    const formatName = (value) =>
+      value
+        .trim()
+        .toLowerCase()
+        .replace(
+          /(^|[\s-])([a-z])/g,
+          (_, separator, letter) => `${separator}${letter.toUpperCase()}`,
+        );
+
+    const normalizedFirstName = formatName(firstName);
+    const normalizedLastName = formatName(lastName);
+
+    // Validate password strength
+    const passwordRequirements =
+      password.length >= 8 &&
+      /[A-Z]/.test(password) &&
+      /[a-z]/.test(password) &&
+      /\d/.test(password) &&
+      /[^A-Za-z0-9]/.test(password);
+
+    if (!passwordRequirements) {
       return res.status(400).json({
         data: null,
         error: {
-          message: "Password must be at least 8 characters",
+          message:
+            "Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.",
         },
       });
     }
@@ -47,7 +78,23 @@ export const register = async (req, res) => {
     // Normalize email
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check whether account already exists
+    // Normalize phone
+    const normalizedPhone = phone.trim();
+
+    // Validate phone number
+    const phoneRegex = /^09\d{9}$/;
+
+    if (!phoneRegex.test(normalizedPhone)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message:
+            "Please enter a valid 11-digit Philippine mobile number starting with 09.",
+        },
+      });
+    }
+
+    // Check whether email already exists
     const existingUser = await User.findOne({
       email: normalizedEmail,
     });
@@ -61,16 +108,30 @@ export const register = async (req, res) => {
       });
     }
 
+    // Check whether phone number already exists
+    const existingPhone = await User.findOne({
+      phone: normalizedPhone,
+    });
+
+    if (existingPhone) {
+      return res.status(409).json({
+        data: null,
+        error: {
+          message: "An account with this phone number already exists",
+        },
+      });
+    }
+
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
     // Create user
     const user = await User.create({
-      firstName,
-      lastName,
+      firstName: normalizedFirstName,
+      lastName: normalizedLastName,
       email: normalizedEmail,
       passwordHash,
-      phone,
+      phone: normalizedPhone,
     });
 
     return res.status(201).json({
@@ -86,11 +147,10 @@ export const register = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       data: null,
       error: {
-        message: "Failed to register user",
+        message: error.message || "Failed to register user",
       },
     });
   }
@@ -112,6 +172,7 @@ export const login = async (req, res) => {
       });
     }
 
+    // Validate email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return res.status(400).json({
         data: null,
@@ -168,10 +229,24 @@ export const login = async (req, res) => {
     user.lastLoginAt = new Date();
     await user.save();
 
+    // Record admin login in audit log
+    if (user.role === "ADMIN") {
+      try {
+        await recordAuditLog({
+          adminId: user._id,
+          action: "LOGIN",
+          resourceType: "AUTH",
+          resourceId: user._id,
+          details: "Administrator logged in successfully.",
+        });
+      } catch (auditError) {
+        console.error("Audit log error:", auditError.message);
+      }
+    }
+
     return res.status(200).json({
       data: {
         token,
-
         user: {
           id: user._id,
           firstName: user.firstName,
@@ -186,10 +261,10 @@ export const login = async (req, res) => {
   } catch (error) {
     console.error(error);
 
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       data: null,
       error: {
-        message: "Login failed",
+        message: error.message || "Login failed",
       },
     });
   }

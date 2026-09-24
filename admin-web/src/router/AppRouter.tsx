@@ -7,12 +7,13 @@ import Products from "../pages/Products";
 import Inventory from "../pages/Inventory";
 import Orders from "../pages/Orders";
 import Users from "../pages/Users";
+import AuditLogs from "../pages/AuditLogs";
 import AdminLayout from "../layouts/AdminLayout";
 import AddProduct from "../pages/AddProduct";
 import EditProduct from "../pages/EditProduct";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const token = localStorage.getItem("adminToken");
+  const token = sessionStorage.getItem("adminToken");
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -42,6 +43,7 @@ export default function AppRouter() {
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/audit-logs" element={<AuditLogs />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />

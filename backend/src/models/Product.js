@@ -304,6 +304,12 @@ const productSchema = new Schema(
 // =========================================
 
 productSchema.index({
+  isActive: 1,
+  frameShape: 1,
+  stock: 1,
+});
+
+productSchema.index({
   frameShape: 1,
   material: 1,
   price: 1,

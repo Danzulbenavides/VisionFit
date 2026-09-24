@@ -21,18 +21,19 @@ const navigation = [
     label: "Users",
     path: "/users",
   },
+
+  { label: "Audit Logs", path: "/audit-logs" },
 ];
 
 export default function AdminLayout() {
   const navigate = useNavigate();
 
-  const storedUser = localStorage.getItem("adminUser");
-
+  const storedUser = sessionStorage.getItem("adminUser");
   const user = storedUser ? JSON.parse(storedUser) : null;
 
   const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminUser");
+    sessionStorage.removeItem("adminToken");
+    sessionStorage.removeItem("adminUser");
 
     navigate("/login", {
       replace: true,

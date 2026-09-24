@@ -29,20 +29,34 @@ export default function RegisterScreen({ navigation }) {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const formatName = (value) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(
+        /(^|[\s-])([a-z])/g,
+        (_, separator, letter) => `${separator}${letter.toUpperCase()}`,
+      );
 
   const handleRegister = async () => {
     if (
-      !firstName.trim() ||
-      !lastName.trim() ||
-      !email.trim() ||
+      !firstName ||
+      !lastName ||
+      !email ||
+      !phone ||
       !password ||
       !confirmPassword
     ) {
-      Alert.alert(
-        "Missing Information",
-        "Please complete all required fields.",
-      );
+      Alert.alert("Missing Information", "Please fill in all fields.");
+      return;
+    }
+    const phoneRegex = /^09\d{9}$/;
 
+    if (!phoneRegex.test(phone.trim())) {
+      Alert.alert(
+        "Phone Number Error",
+        "Please enter a valid 11-digit Philippine mobile number starting with 09.",
+      );
       return;
     }
 
@@ -52,9 +66,18 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert("Password Error", "Password must be at least 6 characters.");
+    const passwordRequirements =
+      password.length >= 8 &&
+      /[A-Z]/.test(password) &&
+      /[a-z]/.test(password) &&
+      /\d/.test(password) &&
+      /[^A-Za-z0-9]/.test(password);
 
+    if (!passwordRequirements) {
+      Alert.alert(
+        "Password Error",
+        "Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.",
+      );
       return;
     }
 
@@ -62,8 +85,8 @@ export default function RegisterScreen({ navigation }) {
       setLoading(true);
 
       const result = await register({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
+        firstName: formatName(firstName),
+        lastName: formatName(lastName),
         email: email.trim(),
         phone: phone.trim(),
         password,
@@ -116,13 +139,14 @@ export default function RegisterScreen({ navigation }) {
         <TextInput
           style={styles.input}
           placeholder="First name"
+          autoCapitalize="words"
           value={firstName}
           onChangeText={setFirstName}
         />
-
         <TextInput
           style={styles.input}
           placeholder="Last name"
+          autoCapitalize="words"
           value={lastName}
           onChangeText={setLastName}
         />
@@ -160,6 +184,10 @@ export default function RegisterScreen({ navigation }) {
           value={confirmPassword}
           onChangeText={setConfirmPassword}
         />
+        <Text style={styles.passwordHint}>
+          Use 8+ characters with uppercase, lowercase, number, and special
+          character.
+        </Text>
 
         <Pressable
           style={[styles.button, loading && styles.disabledButton]}

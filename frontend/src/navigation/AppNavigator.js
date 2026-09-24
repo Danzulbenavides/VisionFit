@@ -27,6 +27,7 @@ import OrdersScreen from "../screens/orders/OrdersScreen";
 import OrderDetailsScreen from "../screens/orders/OrderDetailsScreen";
 
 import FaceScanScreen from "../screens/scan/FaceScanScreen";
+import FaceScanHistoryScreen from "../screens/scan/FaceScanHistoryScreen";
 import RecommendationsScreen from "../screens/recommendations/RecommendationsScreen";
 
 import VirtualTryOnScreen from "../screens/VirtualTryOnScreen";
@@ -194,6 +195,13 @@ function AppStack() {
         component={FaceScanScreen}
         options={{
           title: "Face Scan",
+        }}
+      />
+      <Stack.Screen
+        name="FaceScanHistory"
+        component={FaceScanHistoryScreen}
+        options={{
+          title: "Face Scan History",
         }}
       />
 

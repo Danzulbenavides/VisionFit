@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../../context/AuthContext";
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
 
   const handleLogout = async () => {
@@ -22,6 +22,13 @@ export default function ProfileScreen() {
       <Text style={styles.email}>{user?.email}</Text>
 
       <Text style={styles.role}>{user?.role}</Text>
+
+      <Pressable
+        style={styles.historyButton}
+        onPress={() => navigation.navigate("FaceScanHistory")}
+      >
+        <Text style={styles.historyButtonText}>Face Scan History</Text>
+      </Pressable>
 
       <Pressable style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutText}>Log Out</Text>
@@ -60,6 +67,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#888888",
     marginBottom: 28,
+  },
+
+  historyButton: {
+    width: "100%",
+    maxWidth: 320,
+    height: 50,
+    borderWidth: 1,
+    borderColor: "#D5D5D5",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  historyButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
   },
 
   logoutButton: {

@@ -69,3 +69,9 @@ Thumbs.db
 # PROJECT ZIP
 # =========================
 frontend.zip
+# =========================
+# BACKEND RUNTIME / TEST DATA
+# =========================
+backend/backups/
+backend/uploads/
+backend/test-images/

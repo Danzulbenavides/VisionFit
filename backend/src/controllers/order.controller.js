@@ -80,25 +80,72 @@ export const createOrder = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Shipping address not found");
       }
 
-      const orderItems = [];
-
-      let subtotal = 0;
-
       // -----------------------------------------
       // 6. Validate every cart item
       // -----------------------------------------
 
+      // Fetch all products required by the cart
+      // with ONE database read instead of one
+      // query per cart item.
+      const productIds = cart.items.map((item) => item.productId);
+
+      const products = await Product.find({
+        _id: {
+          $in: productIds,
+        },
+        isActive: true,
+      })
+        .session(session)
+        .lean();
+
+      // Create a fast in-memory lookup map.
+      const productMap = new Map(
+        products.map((product) => [String(product._id), product]),
+      );
+
+      // Fetch all prescriptions required by the cart
+      // with ONE database read.
+      const prescriptionIds = cart.items
+        .filter((item) => item.prescriptionId)
+        .map((item) => item.prescriptionId);
+
+      const prescriptions =
+        prescriptionIds.length > 0
+          ? await Prescription.find({
+              _id: {
+                $in: prescriptionIds,
+              },
+              userId,
+            }).session(session)
+          : [];
+
+      // Create a fast in-memory lookup map.
+      const prescriptionMap = new Map(
+        prescriptions.map((prescription) => [
+          String(prescription._id),
+          prescription,
+        ]),
+      );
+
+      const orderItems = [];
+
+      let subtotal = 0;
+
       for (const cartItem of cart.items) {
-        const product = await Product.findOne({
-          _id: cartItem.productId,
-          isActive: true,
-        }).session(session);
+        // -----------------------------------------
+        // Find product from the batch result
+        // -----------------------------------------
+
+        const product = productMap.get(String(cartItem.productId));
 
         if (!product) {
           throw new ApiError(404, `Product not found: ${cartItem.productId}`);
         }
 
+        // -----------------------------------------
         // Stock validation
+        // -----------------------------------------
+
         if (cartItem.quantity > product.stock) {
           throw new ApiError(400, `Insufficient stock for ${product.name}`);
         }
@@ -110,10 +157,9 @@ export const createOrder = asyncHandler(async (req, res) => {
         let prescriptionSnapshot = null;
 
         if (cartItem.prescriptionId) {
-          const prescription = await Prescription.findOne({
-            _id: cartItem.prescriptionId,
-            userId,
-          }).session(session);
+          const prescription = prescriptionMap.get(
+            String(cartItem.prescriptionId),
+          );
 
           if (!prescription) {
             throw new ApiError(
@@ -173,7 +219,6 @@ export const createOrder = asyncHandler(async (req, res) => {
           coating: cartItem.coating,
         });
       }
-
       // -----------------------------------------
       // 7. Calculate totals server-side
       // -----------------------------------------

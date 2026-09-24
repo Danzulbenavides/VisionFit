@@ -1,8 +1,9 @@
 import Product from "../models/Product.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { recordAuditLog } from "./auditLog.controller.js";
 
-import { validateObjectId, requireFields } from "../utils/validation.js";
+import { validateObjectId } from "../utils/validation.js";
 
 export const getProducts = asyncHandler(async (req, res) => {
   const {
@@ -287,6 +288,19 @@ export const updateProduct = async (req, res) => {
       });
     }
 
+    // Record successful admin update
+    try {
+      await recordAuditLog({
+        adminId: req.user.userId,
+        action: "UPDATE",
+        resourceType: "PRODUCT",
+        resourceId: product._id,
+        details: `Updated product fields: ${Object.keys(updates).join(", ")}`,
+      });
+    } catch (auditError) {
+      console.error("Audit log error:", auditError.message);
+    }
+
     return res.status(200).json({
       data: product,
       error: null,
@@ -307,14 +321,27 @@ export const createProduct = async (req, res) => {
   try {
     const product = await Product.create(req.body);
 
-    res.status(201).json({
+    // Record successful admin creation
+    try {
+      await recordAuditLog({
+        adminId: req.user.userId,
+        action: "CREATE",
+        resourceType: "PRODUCT",
+        resourceId: product._id,
+        details: `Created product: ${product.name}`,
+      });
+    } catch (auditError) {
+      console.error("Audit log error:", auditError.message);
+    }
+
+    return res.status(201).json({
       data: product,
       error: null,
     });
   } catch (error) {
     console.error(error);
 
-    res.status(400).json({
+    return res.status(400).json({
       data: null,
       error: {
         message: "Failed to create product",
@@ -348,6 +375,20 @@ export const deleteProduct = async (req, res) => {
           message: "Product not found",
         },
       });
+    }
+
+    // Record successful admin deletion
+    // Note: this is a soft delete (isActive = false)
+    try {
+      await recordAuditLog({
+        adminId: req.user.userId,
+        action: "DELETE",
+        resourceType: "PRODUCT",
+        resourceId: product._id,
+        details: `Deactivated product: ${product.name}`,
+      });
+    } catch (auditError) {
+      console.error("Audit log error:", auditError.message);
     }
 
     return res.status(200).json({

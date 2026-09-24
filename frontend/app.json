@@ -5,11 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-
     "ios": {
       "supportsTablet": true
     },
-
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -19,6 +17,9 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.visionfit"
-    }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }

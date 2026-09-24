@@ -2,7 +2,7 @@ import { fetch } from "expo/fetch";
 import { File } from "expo-file-system";
 import { getToken } from "../utils/storage";
 
-const API_URL = "http://192.168.100.140:5000/api";
+const API_URL = "http://10.42.21.3:5000/api";
 
 export const virtualTryOn = async (productId, imageUri) => {
   console.log("========================================");

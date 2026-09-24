@@ -14,6 +14,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 
 import { getRecommendations } from "../../api/recommendations";
+import { createUserEvent } from "../../api/userEvents";
 
 export default function RecommendationsScreen({ navigation, route }) {
   const [data, setData] = useState(null);
@@ -23,6 +24,9 @@ export default function RecommendationsScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const [error, setError] = useState("");
+
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(null);
+  const [feedbackGiven, setFeedbackGiven] = useState({});
 
   /*
    * Result passed directly from FaceScanScreen.
@@ -79,6 +83,44 @@ export default function RecommendationsScreen({ navigation, route }) {
     }
   };
 
+  const handleRecommendationFeedback = async (
+    productId,
+    helpful,
+    matchScore,
+  ) => {
+    if (!productId || feedbackSubmitting === productId) {
+      return;
+    }
+
+    try {
+      setFeedbackSubmitting(productId);
+
+      await createUserEvent({
+        eventType: "RECOMMENDATION_FEEDBACK",
+        productId,
+        metadata: {
+          helpful,
+          matchScore: Number(matchScore) || 0,
+          faceShape: faceShape || null,
+        },
+      });
+
+      setFeedbackGiven((current) => ({
+        ...current,
+        [productId]: helpful,
+      }));
+    } catch (err) {
+      console.error("RECOMMENDATION FEEDBACK ERROR:", err);
+
+      setError(
+        err?.response?.data?.error?.message ||
+          err?.message ||
+          "Unable to save your feedback.",
+      );
+    } finally {
+      setFeedbackSubmitting(null);
+    }
+  };
   // =========================================
   // LOAD WHEN SCREEN GETS FOCUS
   // =========================================
@@ -411,9 +453,16 @@ export default function RecommendationsScreen({ navigation, route }) {
                   </View>
                 </View>
 
-                <Text style={styles.reason}>
-                  {recommendation.reason || "Recommended for your face shape."}
-                </Text>
+                <View style={styles.whyCard}>
+                  <Text style={styles.whyTitle}>Why this frame?</Text>
+
+                  <Text style={styles.whyText}>
+                    {recommendation.reason ||
+                      `This frame was recommended based on your ${
+                        formatValue(faceShape) || "detected face shape"
+                      } and current eyewear preferences.`}
+                  </Text>
+                </View>
 
                 {/* =================================
                     TRY ON BUTTON
@@ -431,6 +480,48 @@ export default function RecommendationsScreen({ navigation, route }) {
                     {hasTryOnImage ? "Try On" : "Try On Unavailable"}
                   </Text>
                 </Pressable>
+
+                <View style={styles.feedbackSection}>
+                  <Text style={styles.feedbackTitle}>
+                    Was this recommendation helpful?
+                  </Text>
+
+                  {feedbackGiven[product?._id] !== undefined ? (
+                    <Text style={styles.feedbackThankYou}>
+                      Thanks for your feedback.
+                    </Text>
+                  ) : (
+                    <View style={styles.feedbackRow}>
+                      <Pressable
+                        style={styles.feedbackButton}
+                        disabled={feedbackSubmitting === product?._id}
+                        onPress={() =>
+                          handleRecommendationFeedback(
+                            product?._id,
+                            true,
+                            recommendation.matchScore,
+                          )
+                        }
+                      >
+                        <Text style={styles.feedbackButtonText}>Yes</Text>
+                      </Pressable>
+
+                      <Pressable
+                        style={styles.feedbackButton}
+                        disabled={feedbackSubmitting === product?._id}
+                        onPress={() =>
+                          handleRecommendationFeedback(
+                            product?._id,
+                            false,
+                            recommendation.matchScore,
+                          )
+                        }
+                      >
+                        <Text style={styles.feedbackButtonText}>No</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
           );
@@ -485,6 +576,62 @@ function formatValue(value) {
 // =========================================
 
 const styles = StyleSheet.create({
+  feedbackSection: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5E5",
+  },
+
+  feedbackTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+
+  feedbackRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  feedbackButton: {
+    flex: 1,
+    height: 38,
+    borderWidth: 1,
+    borderColor: "#D5D5D5",
+    borderRadius: 9,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  feedbackButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  feedbackThankYou: {
+    fontSize: 12,
+    color: "#666666",
+  },
+  whyCard: {
+    marginTop: 12,
+    backgroundColor: "#F7F7F7",
+    borderRadius: 12,
+    padding: 12,
+  },
+
+  whyTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+
+  whyText: {
+    fontSize: 12,
+    color: "#666666",
+    lineHeight: 18,
+  },
+
   container: {
     padding: 20,
     paddingBottom: 40,

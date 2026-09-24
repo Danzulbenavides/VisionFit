@@ -19,6 +19,7 @@ import userEventRoutes from "./routes/userEvent.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
 import faceScanRoutes from "./routes/faceScan.routes.js";
 import virtualTryOnRoutes from "./routes/virtualTryOn.routes.js";
+import auditLogRoutes from "./routes/auditLog.routes.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -26,6 +27,7 @@ import {
   errorHandler,
 } from "./middleware/error.middleware.js";
 import { analyzeFaceImage } from "./services/aiService.js";
+import requestLogger from "./middleware/requestLogger.middleware.js";
 
 const app = express();
 
@@ -82,6 +84,12 @@ app.use(
     limit: "1mb",
   }),
 );
+
+// -----------------------------------------
+// API request monitoring
+// -----------------------------------------
+
+app.use(requestLogger);
 
 // -----------------------------------------
 // Authentication rate limiter
@@ -144,6 +152,7 @@ app.use("/api/articles", articleRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/events", userEventRoutes);
 app.use("/api/admin/analytics", analyticsRoutes);
+app.use("/api/admin/audit-logs", auditLogRoutes);
 app.use("/api/face-scan", faceScanRoutes);
 app.use("/api/virtual-try-on", virtualTryOnRoutes);
 app.use(notFoundHandler);

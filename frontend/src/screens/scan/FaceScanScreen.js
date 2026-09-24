@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import {
   ActivityIndicator,
@@ -15,6 +15,8 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { analyzeFaceScan } from "../../api/faceScan";
 import { createFaceMeasurement } from "../../api/faceMeasurements";
 
+import { getFaceScanConsent, saveFaceScanConsent } from "../../utils/storage";
+
 export default function FaceScanScreen({ navigation }) {
   const cameraRef = useRef(null);
 
@@ -23,6 +25,77 @@ export default function FaceScanScreen({ navigation }) {
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState(null);
   const [photoUri, setPhotoUri] = useState(null);
+
+  const [checkingConsent, setCheckingConsent] = useState(true);
+  const [hasFaceScanConsent, setHasFaceScanConsent] = useState(false);
+
+  useEffect(() => {
+    const loadConsent = async () => {
+      try {
+        const consent = await getFaceScanConsent();
+        setHasFaceScanConsent(consent);
+      } catch (error) {
+        console.error("FACE SCAN CONSENT LOAD ERROR:", error);
+        setHasFaceScanConsent(false);
+      } finally {
+        setCheckingConsent(false);
+      }
+    };
+
+    loadConsent();
+  }, []);
+
+  const handleAcceptConsent = async () => {
+    try {
+      await saveFaceScanConsent();
+      setHasFaceScanConsent(true);
+    } catch (error) {
+      console.error("FACE SCAN CONSENT SAVE ERROR:", error);
+
+      Alert.alert(
+        "Unable to Continue",
+        "VisionFit could not save your privacy preference. Please try again.",
+      );
+    }
+  };
+
+  if (checkingConsent) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
+
+        <Text style={styles.helperText}>Checking privacy settings...</Text>
+      </View>
+    );
+  }
+
+  if (!hasFaceScanConsent) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.privacyTitle}>Face Scan Privacy</Text>
+
+        <Text style={styles.privacyText}>
+          VisionFit uses your camera image to analyze facial landmarks and
+          provide eyewear recommendations.
+        </Text>
+
+        <Text style={styles.privacyText}>
+          Your image is used for face analysis. VisionFit saves the resulting
+          measurements, such as face shape, face width, face length, and pupil
+          distance, rather than saving the original scan image.
+        </Text>
+
+        <Text style={styles.privacyText}>
+          These measurements are estimates for eyewear recommendations and are
+          not medical or optometrist-grade measurements.
+        </Text>
+
+        <Pressable style={styles.primaryButton} onPress={handleAcceptConsent}>
+          <Text style={styles.primaryButtonText}>I Understand & Continue</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (!permission) {
     return (
@@ -330,6 +403,22 @@ function formatValue(value) {
 }
 
 const styles = StyleSheet.create({
+  privacyTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+
+  privacyText: {
+    width: "100%",
+    maxWidth: 420,
+    fontSize: 14,
+    lineHeight: 21,
+    color: "#666666",
+    textAlign: "center",
+    marginBottom: 14,
+  },
   /* =========================
      GENERAL
   ========================= */

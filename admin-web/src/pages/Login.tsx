@@ -42,8 +42,8 @@ export default function Login() {
         throw new Error("This account does not have administrator access.");
       }
 
-      localStorage.setItem("adminToken", token);
-      localStorage.setItem("adminUser", JSON.stringify(user));
+      sessionStorage.setItem("adminToken", token);
+      sessionStorage.setItem("adminUser", JSON.stringify(user));
 
       navigate("/dashboard", {
         replace: true,

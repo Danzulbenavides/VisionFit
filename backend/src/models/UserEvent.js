@@ -19,6 +19,7 @@ const userEventSchema = new mongoose.Schema(
         "FAVORITE",
         "UNFAVORITE",
         "FACE_SCAN",
+        "RECOMMENDATION_FEEDBACK",
         "CHECKOUT_STARTED",
         "ORDER_COMPLETED",
       ],
