@@ -33,9 +33,9 @@ router.get("/", getOrders);
 // /admin MUST COME BEFORE /:id
 // =========================================
 
-router.get("/admin", requireRole("ADMIN"), getAllOrders);
+router.get("/admin", requireRole("ADMIN", "STAFF"), getAllOrders);
 
-router.patch("/:id/status", requireRole("ADMIN"), updateOrderStatus);
+router.patch("/:id/status", requireRole("ADMIN", "STAFF"), updateOrderStatus);
 
 // =========================================
 // CUSTOMER ORDER DETAILS
