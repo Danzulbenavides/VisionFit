@@ -69,6 +69,19 @@ export const AuthProvider = ({ children }) => {
     };
   };
 
+  const completeAuth = async (newToken, newUser) => {
+    await saveAuth(newToken, newUser);
+
+    setToken(newToken);
+    setUser(newUser);
+    setIsAuthenticated(true);
+
+    return {
+      token: newToken,
+      user: newUser,
+    };
+  };
+
   const logout = async () => {
     await clearAuth();
 
@@ -84,6 +97,7 @@ export const AuthProvider = ({ children }) => {
       loading,
       isAuthenticated,
       login,
+      completeAuth,
       logout,
     }),
     [user, token, loading, isAuthenticated],

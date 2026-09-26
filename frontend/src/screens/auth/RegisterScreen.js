@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 
+import { Ionicons } from "@expo/vector-icons";
+
 import {
   ActivityIndicator,
   Alert,
@@ -14,8 +16,11 @@ import {
 } from "react-native";
 
 import { register } from "../../api/auth";
+import useKeyboardInset from "../../hooks/useKeyboardInset";
 
 export default function RegisterScreen({ navigation }) {
+  const keyboardInset = useKeyboardInset();
+
   const [firstName, setFirstName] = useState("");
 
   const [lastName, setLastName] = useState("");
@@ -28,7 +33,16 @@ export default function RegisterScreen({ navigation }) {
 
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [loading, setLoading] = useState(false);
+
+  const filterName = (value) => value.replace(/[^A-Za-z\s-]/g, "");
+
+  const filterPhone = (value) => value.replace(/[^0-9]/g, "");
+
   const formatName = (value) =>
     value
       .trim()
@@ -99,12 +113,13 @@ export default function RegisterScreen({ navigation }) {
       }
 
       Alert.alert(
-        "Account Created",
-        "Your account has been created successfully.",
+        "Check Your Email",
+        "We sent a 6-digit verification code to your email address.",
         [
           {
             text: "OK",
-            onPress: () => navigation.replace("Login"),
+            onPress: () =>
+              navigation.replace("VerifyEmail", { email: email.trim() }),
           },
         ],
       );
@@ -125,10 +140,16 @@ export default function RegisterScreen({ navigation }) {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={0}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          keyboardInset > 0 ? { paddingBottom: keyboardInset + 24 } : null,
+        ]}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         <Text style={styles.logo}>VisionFit</Text>
 
@@ -141,14 +162,14 @@ export default function RegisterScreen({ navigation }) {
           placeholder="First name"
           autoCapitalize="words"
           value={firstName}
-          onChangeText={setFirstName}
+          onChangeText={(value) => setFirstName(filterName(value))}
         />
         <TextInput
           style={styles.input}
           placeholder="Last name"
           autoCapitalize="words"
           value={lastName}
-          onChangeText={setLastName}
+          onChangeText={(value) => setLastName(filterName(value))}
         />
 
         <TextInput
@@ -164,26 +185,55 @@ export default function RegisterScreen({ navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Phone number"
-          keyboardType="phone-pad"
+          keyboardType="number-pad"
+          maxLength={11}
           value={phone}
-          onChangeText={setPhone}
+          onChangeText={(value) => setPhone(filterPhone(value))}
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Password"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+          />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm password"
-          secureTextEntry
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-        />
+          <Pressable
+            style={styles.eyeButton}
+            onPress={() => setShowPassword((value) => !value)}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={showPassword ? "eye-off-outline" : "eye-outline"}
+              size={22}
+              color="#555555"
+            />
+          </Pressable>
+        </View>
+
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Confirm password"
+            secureTextEntry={!showConfirmPassword}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+
+          <Pressable
+            style={styles.eyeButton}
+            onPress={() => setShowConfirmPassword((value) => !value)}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+              size={22}
+              color="#555555"
+            />
+          </Pressable>
+        </View>
         <Text style={styles.passwordHint}>
           Use 8+ characters with uppercase, lowercase, number, and special
           character.
@@ -202,7 +252,9 @@ export default function RegisterScreen({ navigation }) {
         </Pressable>
 
         <Pressable onPress={() => navigation.navigate("Login")}>
-          <Text style={styles.loginLink}>Already have an account? Log in</Text>
+          <Text style={styles.loginLink}>
+            Already have an account? <Text style={styles.loginLinkText}>Log in</Text>
+          </Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -215,10 +267,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
 
+  scroll: {
+    flex: 1,
+  },
+
   content: {
     flexGrow: 1,
     justifyContent: "center",
     padding: 24,
+    paddingBottom: 48,
   },
 
   logo: {
@@ -251,6 +308,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
+  passwordContainer: {
+    height: 52,
+    borderWidth: 1,
+    borderColor: "#D0D0D0",
+    borderRadius: 10,
+    paddingLeft: 16,
+    paddingRight: 12,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  passwordInput: {
+    flex: 1,
+    fontSize: 16,
+  },
+
+  eyeButton: {
+    paddingLeft: 10,
+  },
+
   button: {
     height: 52,
     borderRadius: 10,
@@ -274,5 +352,12 @@ const styles = StyleSheet.create({
   loginLink: {
     textAlign: "center",
     fontSize: 14,
+    color: "#333333",
+  },
+
+  loginLinkText: {
+    color: "#1D4ED8",
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 });
