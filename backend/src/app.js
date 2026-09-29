@@ -20,6 +20,7 @@ import analyticsRoutes from "./routes/analytics.routes.js";
 import faceScanRoutes from "./routes/faceScan.routes.js";
 import virtualTryOnRoutes from "./routes/virtualTryOn.routes.js";
 import auditLogRoutes from "./routes/auditLog.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -51,6 +52,8 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
 ].filter(Boolean);
 
 app.use(
@@ -153,6 +156,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/events", userEventRoutes);
 app.use("/api/admin/analytics", analyticsRoutes);
 app.use("/api/admin/audit-logs", auditLogRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/face-scan", faceScanRoutes);
 app.use("/api/virtual-try-on", virtualTryOnRoutes);
 app.use(notFoundHandler);
