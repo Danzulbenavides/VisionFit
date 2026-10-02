@@ -1,5 +1,9 @@
 import React from "react";
 
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import { Ionicons } from "@expo/vector-icons";
+
 import { NavigationContainer } from "@react-navigation/native";
 
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -36,7 +40,12 @@ import VirtualTryOnScreen from "../screens/VirtualTryOnScreen";
 import EducationalHubScreen from "../screens/educational/EducationalHubScreen";
 import EducationalLessonScreen from "../screens/educational/EducationalLessonScreen";
 
+import NotificationsScreen from "../screens/notifications/NotificationsScreen";
+import NotificationBanner from "../components/NotificationBanner";
+
 import { useAuth } from "../context/AuthContext";
+import { useNotifications } from "../context/NotificationContext";
+import { navigationRef } from "./navigationRef";
 
 const Stack = createNativeStackNavigator();
 
@@ -72,7 +81,31 @@ function AuthStack() {
   );
 }
 
+// The Scan tab never shows a screen of its own, tapping it opens the Face Scan
+function ScanPlaceholder() {
+  return null;
+}
+
+// Raised round button in the middle of the tab bar
+function ScanTabButton({ onPress }) {
+  return (
+    <View style={styles.scanWrapper}>
+      <Pressable style={styles.scanButton} onPress={onPress}>
+        <Ionicons name="scan-outline" size={28} color="#FFFFFF" />
+      </Pressable>
+
+      <Text style={styles.scanLabel}>Scan</Text>
+    </View>
+  );
+}
+
+const tabIcon =
+  (name) =>
+  ({ color, size }) => <Ionicons name={name} size={size} color={color} />;
+
 function MainTabs() {
+  const { unreadCount } = useNotifications();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -86,6 +119,7 @@ function MainTabs() {
         component={HomeScreen}
         options={{
           tabBarLabel: "Home",
+          tabBarIcon: tabIcon("home-outline"),
         }}
       />
 
@@ -94,15 +128,23 @@ function MainTabs() {
         component={ProductListScreen}
         options={{
           tabBarLabel: "Shop",
+          tabBarIcon: tabIcon("storefront-outline"),
         }}
       />
 
       <Tab.Screen
-        name="Favorites"
-        component={FavoritesScreen}
+        name="Scan"
+        component={ScanPlaceholder}
         options={{
-          tabBarLabel: "Favorites",
+          tabBarLabel: () => null,
+          tabBarButton: (props) => <ScanTabButton onPress={props.onPress} />,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (event) => {
+            event.preventDefault();
+            navigation.navigate("FaceScan");
+          },
+        })}
       />
 
       <Tab.Screen
@@ -110,6 +152,7 @@ function MainTabs() {
         component={CartScreen}
         options={{
           tabBarLabel: "Cart",
+          tabBarIcon: tabIcon("cart-outline"),
         }}
       />
 
@@ -118,6 +161,8 @@ function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: "Profile",
+          tabBarIcon: tabIcon("person-outline"),
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         }}
       />
     </Tab.Navigator>
@@ -132,6 +177,22 @@ function AppStack() {
         component={MainTabs}
         options={{
           headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="Favorites"
+        component={FavoritesScreen}
+        options={{
+          title: "Favorites",
+        }}
+      />
+
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{
+          title: "Notifications",
         }}
       />
 
@@ -253,8 +314,41 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {isAuthenticated ? <AppStack /> : <AuthStack />}
+
+      {isAuthenticated ? <NotificationBanner /> : null}
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  scanWrapper: {
+    flex: 1,
+    alignItems: "center",
+  },
+
+  scanButton: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    marginTop: -22,
+    backgroundColor: "#111111",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 4,
+    borderColor: "#FFFFFF",
+    elevation: 8,
+    shadowColor: "#000000",
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+
+  scanLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    marginTop: 2,
+    color: "#111111",
+  },
+});

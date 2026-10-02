@@ -15,20 +15,91 @@ import {
 import { getProducts } from "../../api/products";
 import ProductCard from "../../components/ProductCard";
 
+// These values must match the backend enums exactly
 const FRAME_SHAPES = [
-  "RECTANGLE",
   "SQUARE",
+  "RECTANGLE",
+  "ROUND",
+  "CAT_EYE",
   "BROWLINE",
   "AVIATOR",
-  "ROUND",
-  "OVAL",
+  "BUTTERFLY",
+  "GEOMETRIC",
 ];
 
-const CATEGORIES = ["EYEGLASSES"];
+const CATEGORIES = ["EYEGLASSES", "SUNGLASSES", "BLUE_LIGHT"];
 
-const MATERIALS = ["ACETATE", "METAL"];
+const MATERIALS = ["TR90", "ACETATE", "PLASTIC", "METAL", "TITANIUM", "MIXED"];
 
-const GENDERS = ["UNISEX"];
+const GENDERS = ["WOMEN", "MEN", "UNISEX"];
+
+// CAT_EYE -> "Cat Eye", BLUE_LIGHT -> "Blue Light", TR90 stays "TR90"
+const prettify = (value) =>
+  value
+    .split("_")
+    .map((word) =>
+      /\d/.test(word) ? word : word.charAt(0) + word.slice(1).toLowerCase(),
+    )
+    .join(" ");
+
+// ---------- filter input helpers ----------
+const MAX_PRICE = 1000000;
+const MAX_STOCK = 100000;
+
+// Digits and one dot, max 2 decimals
+const filterMoney = (value) => {
+  const cleaned = value.replace(/[^0-9.]/g, "");
+  const firstDot = cleaned.indexOf(".");
+
+  if (firstDot === -1) return cleaned.slice(0, 7);
+
+  const whole = cleaned.slice(0, firstDot).slice(0, 7);
+  const decimals = cleaned.slice(firstDot + 1).replace(/\./g, "").slice(0, 2);
+
+  return `${whole}.${decimals}`;
+};
+
+const filterDigits = (value) => value.replace(/\D/g, "").slice(0, 6);
+
+const validateMoney = (value, label) => {
+  const v = value.trim();
+
+  if (!v) return "";
+  if (v === "." || Number.isNaN(Number(v))) return `Enter a valid ${label}.`;
+  if (Number(v) > MAX_PRICE) return `${label} is too large.`;
+
+  return "";
+};
+
+const validateFilters = ({ minPrice, maxPrice, minStock }) => {
+  const errors = {
+    minPrice: validateMoney(minPrice, "minimum price"),
+    maxPrice: validateMoney(maxPrice, "maximum price"),
+    minStock: "",
+  };
+
+  if (
+    !errors.minPrice &&
+    !errors.maxPrice &&
+    minPrice.trim() &&
+    maxPrice.trim() &&
+    Number(minPrice) > Number(maxPrice)
+  ) {
+    errors.maxPrice = "Max price must be higher than min price.";
+  }
+
+  if (minStock.trim()) {
+    const stock = Number(minStock);
+
+    if (!Number.isInteger(stock) || stock < 0) {
+      errors.minStock = "Enter a whole number, 0 or higher.";
+    } else if (stock > MAX_STOCK) {
+      errors.minStock = "Minimum stock is too large.";
+    }
+  }
+
+  return errors;
+};
 
 const SORT_OPTIONS = [
   {
@@ -98,50 +169,67 @@ export default function ProductListScreen({ navigation }) {
 
   const [minStock, setMinStock] = useState("");
 
-  const loadProducts = async (pageNumber = 1) => {
+  const [filterErrors, setFilterErrors] = useState({});
+
+  // "overrides" lets us load with new values right away, before React has
+  // finished updating the state (used by Sort and Clear filters)
+  const loadProducts = async (pageNumber = 1, overrides = {}) => {
     try {
       setLoading(true);
       setError("");
+
+      const current = {
+        search,
+        frameShape,
+        category,
+        material,
+        genderCategory,
+        minPrice,
+        maxPrice,
+        minStock,
+        sort,
+        ...overrides,
+      };
 
       const params = {
         page: pageNumber,
         limit: 10,
       };
 
-      if (search.trim()) {
-        params.search = search.trim();
+      if (current.search.trim()) {
+        params.search = current.search.trim();
       }
 
-      if (frameShape) {
-        params.frameShape = frameShape;
+      if (current.frameShape) {
+        params.frameShape = current.frameShape;
       }
 
-      if (category) {
-        params.category = category;
+      if (current.category) {
+        params.category = current.category;
       }
 
-      if (material) {
-        params.material = material;
+      if (current.material) {
+        params.material = current.material;
       }
 
-      if (genderCategory) {
-        params.genderCategory = genderCategory;
+      if (current.genderCategory) {
+        params.genderCategory = current.genderCategory;
       }
 
-      if (minPrice.trim()) {
-        params.minPrice = minPrice.trim();
+      if (current.minPrice.trim()) {
+        params.minPrice = current.minPrice.trim();
       }
 
-      if (maxPrice.trim()) {
-        params.maxPrice = maxPrice.trim();
+      if (current.maxPrice.trim()) {
+        params.maxPrice = current.maxPrice.trim();
       }
 
-      if (minStock.trim()) {
-        params.minStock = minStock.trim();
+      if (current.minStock.trim()) {
+        params.minStock = current.minStock.trim();
       }
 
-      if (sort) {
-        params.sort = sort;
+      if (current.sort) {
+        params.sort = current.sort;
       }
 
       const result = await getProducts(params);
@@ -158,8 +246,8 @@ export default function ProductListScreen({ navigation }) {
 
       setPage(pageNumber);
     } catch (err) {
-      console.error("Load products error:", err);
-
+      // No console.error: it shows a red toast in Expo. The message below
+      // is what the user sees.
       setError(
         err.response?.data?.error?.message || "Unable to load products.",
       );
@@ -177,6 +265,15 @@ export default function ProductListScreen({ navigation }) {
   };
 
   const applyFilters = () => {
+    const errors = validateFilters({ minPrice, maxPrice, minStock });
+
+    setFilterErrors(errors);
+
+    // Keep the modal open so the user can fix the highlighted fields
+    if (Object.values(errors).some((message) => message)) {
+      return;
+    }
+
     setFilterVisible(false);
     loadProducts(1);
   };
@@ -189,18 +286,30 @@ export default function ProductListScreen({ navigation }) {
     setMinPrice("");
     setMaxPrice("");
     setMinStock("");
+    setFilterErrors({});
 
     setFilterVisible(false);
+
+    loadProducts(1, {
+      frameShape: "",
+      category: "",
+      material: "",
+      genderCategory: "",
+      minPrice: "",
+      maxPrice: "",
+      minStock: "",
+    });
   };
 
   const applySort = (value) => {
     setSort(value);
     setSortVisible(false);
 
-    setTimeout(() => {
-      loadProducts(1);
-    }, 0);
+    loadProducts(1, { sort: value });
   };
+
+  const priceBorder = (field) =>
+    filterErrors[field] ? { borderColor: "#D93025" } : null;
 
   const selectedSortLabel =
     SORT_OPTIONS.find((option) => option.value === sort)?.label || "Newest";
@@ -218,6 +327,8 @@ export default function ProductListScreen({ navigation }) {
           style={styles.searchInput}
           placeholder="Search frames..."
           value={search}
+          maxLength={100}
+          autoCorrect={false}
           onChangeText={setSearch}
           onSubmitEditing={handleSearch}
           returnKeyType="search"
@@ -360,7 +471,7 @@ export default function ProductListScreen({ navigation }) {
                       setFrameShape(frameShape === shape ? "" : shape)
                     }
                   >
-                    <Text style={styles.optionText}>{shape}</Text>
+                    <Text style={styles.optionText}>{prettify(shape)}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -378,7 +489,7 @@ export default function ProductListScreen({ navigation }) {
                     ]}
                     onPress={() => setCategory(category === item ? "" : item)}
                   >
-                    <Text style={styles.optionText}>{item}</Text>
+                    <Text style={styles.optionText}>{prettify(item)}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -396,7 +507,7 @@ export default function ProductListScreen({ navigation }) {
                     ]}
                     onPress={() => setMaterial(material === item ? "" : item)}
                   >
-                    <Text style={styles.optionText}>{item}</Text>
+                    <Text style={styles.optionText}>{prettify(item)}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -416,7 +527,7 @@ export default function ProductListScreen({ navigation }) {
                       setGenderCategory(genderCategory === item ? "" : item)
                     }
                   >
-                    <Text style={styles.optionText}>{item}</Text>
+                    <Text style={styles.optionText}>{prettify(item)}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -426,34 +537,55 @@ export default function ProductListScreen({ navigation }) {
 
               <View style={styles.priceRow}>
                 <TextInput
-                  style={styles.priceInput}
-                  placeholder="Min"
-                  keyboardType="numeric"
+                  style={[styles.priceInput, priceBorder("minPrice")]}
+                  placeholder="Min (₱)"
+                  keyboardType="decimal-pad"
                   value={minPrice}
-                  onChangeText={setMinPrice}
+                  onChangeText={(value) => {
+                    setMinPrice(filterMoney(value));
+                    setFilterErrors((previous) => ({ ...previous, minPrice: "", maxPrice: "" }));
+                  }}
                 />
 
                 <Text style={styles.priceDash}>—</Text>
 
                 <TextInput
-                  style={styles.priceInput}
-                  placeholder="Max"
-                  keyboardType="numeric"
+                  style={[styles.priceInput, priceBorder("maxPrice")]}
+                  placeholder="Max (₱)"
+                  keyboardType="decimal-pad"
                   value={maxPrice}
-                  onChangeText={setMaxPrice}
+                  onChangeText={(value) => {
+                    setMaxPrice(filterMoney(value));
+                    setFilterErrors((previous) => ({ ...previous, maxPrice: "" }));
+                  }}
                 />
               </View>
+
+              {filterErrors.minPrice ? (
+                <Text style={styles.fieldError}>{filterErrors.minPrice}</Text>
+              ) : null}
+
+              {filterErrors.maxPrice ? (
+                <Text style={styles.fieldError}>{filterErrors.maxPrice}</Text>
+              ) : null}
 
               {/* Minimum Stock */}
               <Text style={styles.filterLabel}>Minimum Stock</Text>
 
               <TextInput
-                style={styles.priceInput}
-                placeholder="Minimum stock"
-                keyboardType="numeric"
+                style={[styles.priceInput, priceBorder("minStock")]}
+                placeholder="Minimum stock (whole number)"
+                keyboardType="number-pad"
                 value={minStock}
-                onChangeText={setMinStock}
+                onChangeText={(value) => {
+                  setMinStock(filterDigits(value));
+                  setFilterErrors((previous) => ({ ...previous, minStock: "" }));
+                }}
               />
+
+              {filterErrors.minStock ? (
+                <Text style={styles.fieldError}>{filterErrors.minStock}</Text>
+              ) : null}
 
               {/* Actions */}
               <View style={styles.filterActions}>
@@ -474,6 +606,13 @@ export default function ProductListScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  fieldError: {
+    color: "#D93025",
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
