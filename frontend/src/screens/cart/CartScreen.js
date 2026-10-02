@@ -12,6 +12,9 @@ import {
   View,
 } from "react-native";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+
 import {
   getCart,
   updateCartItem,
@@ -218,23 +221,26 @@ export default function CartScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-
-        <Text style={styles.loadingText}>Loading your cart...</Text>
-      </View>
+      <SafeAreaView style={s.container} edges={["top"]}>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color="#111111" />
+          <Text style={s.loadingText}>Loading your cart...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
+      <SafeAreaView style={s.container} edges={["top"]}>
+        <View style={s.center}>
+          <Text style={s.errorText}>{error}</Text>
 
-        <Pressable style={styles.retryButton} onPress={() => loadCart()}>
-          <Text style={styles.retryButtonText}>Try Again</Text>
-        </Pressable>
-      </View>
+          <Pressable style={s.retryButton} onPress={() => loadCart()}>
+            <Text style={s.retryButtonText}>Try Again</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -247,180 +253,162 @@ export default function CartScreen({ navigation }) {
     return sum + unitPrice * quantity;
   }, 0);
 
-  if (items.length === 0) {
-    return (
+  const itemCount = cart?.totalItems || items.length;
+
+  return (
+    <SafeAreaView style={s.container} edges={["top"]}>
+      <View style={s.header}>
+        <Pressable
+          onPress={() => navigation.canGoBack() && navigation.goBack()}
+          hitSlop={10}
+        >
+          <Ionicons name="chevron-back" size={25} />
+        </Pressable>
+
+        <Text style={s.headerTitle}>Shopping cart ({itemCount})</Text>
+
+        <Pressable onPress={handleClearCart} disabled={items.length === 0}>
+          <Text style={[s.clearText, items.length === 0 && s.clearTextDisabled]}>
+            Clear
+          </Text>
+        </Pressable>
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.emptyContainer}
+        contentContainerStyle={s.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
-        <Text style={styles.emptyIcon}>🛒</Text>
-
-        <Text style={styles.emptyTitle}>Your cart is empty</Text>
-
-        <Text style={styles.emptyText}>
-          Find a frame you love and add it to your cart.
-        </Text>
-
-        <Pressable
-          style={styles.shopButton}
-          onPress={() => navigation.navigate("Shop")}
-        >
-          <Text style={styles.shopButtonText}>Shop Eyewear</Text>
-        </Pressable>
-      </ScrollView>
-    );
-  }
-
-  return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-      }
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Your Cart</Text>
-
-          <Text style={styles.subtitle}>
-            {cart?.totalItems || items.length}{" "}
-            {(cart?.totalItems || items.length) === 1 ? "item" : "items"}
-          </Text>
-        </View>
-
-        <Pressable onPress={handleClearCart}>
-          <Text style={styles.clearText}>Clear</Text>
-        </Pressable>
-      </View>
-
-      {items.map((item, index) => {
-        const product = item?.productId;
-        const image = product?.images?.[0];
-        const isUpdating = updatingItem === item?._id;
-
-        /*
-         * Guaranteed unique React key.
-         *
-         * Priority:
-         * 1. Cart item ID
-         * 2. Product ID
-         * 3. Fallback using index
-         */
-        const itemKey = item?._id || product?._id || `cart-item-${index}`;
-
-        return (
-          <View key={itemKey} style={styles.cartItem}>
+        {items.length === 0 ? (
+          <View style={s.empty}>
+            <Ionicons name="cart-outline" size={80} color="#CCCCCC" />
+            <Text style={s.emptyTitle}>Your cart is empty</Text>
+            <Text style={s.emptyText}>
+              Find a frame you love and add it to your cart.
+            </Text>
             <Pressable
-              style={styles.productImageContainer}
-              onPress={() => {
-                if (!product?._id) {
-                  return;
-                }
-
-                navigation.navigate("ProductDetails", {
-                  productId: product._id,
-                });
-              }}
+              style={s.shopButton}
+              onPress={() => navigation.navigate("Shop")}
             >
-              {image ? (
-                <Image
-                  source={{
-                    uri: image,
-                  }}
-                  style={styles.productImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.imagePlaceholder}>
-                  <Text style={styles.placeholderText}>VisionFit</Text>
-                </View>
-              )}
+              <Text style={s.shopButtonText}>Browse products</Text>
             </Pressable>
+          </View>
+        ) : (
+          items.map((item, index) => {
+            const product = item?.productId;
+            const image = product?.images?.[0];
+            const isUpdating = updatingItem === item?._id;
+            const itemKey = item?._id || product?._id || `cart-item-${index}`;
 
-            <View style={styles.itemContent}>
-              <Text style={styles.brand}>{product?.brand || "VisionFit"}</Text>
+            return (
+              <View style={s.cartItem} key={itemKey}>
+                <Pressable
+                  style={s.itemArt}
+                  onPress={() => {
+                    if (!product?._id) {
+                      return;
+                    }
 
-              <Text style={styles.productName} numberOfLines={2}>
-                {product?.name || "Product"}
-              </Text>
+                    navigation.navigate("ProductDetails", {
+                      productId: product._id,
+                    });
+                  }}
+                >
+                  {image ? (
+                    <Image
+                      source={{ uri: image }}
+                      style={s.itemImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={s.imagePlaceholder}>
+                      <Text style={s.placeholderText}>VisionFit</Text>
+                    </View>
+                  )}
+                </Pressable>
 
-              <Text style={styles.itemPrice}>
-                ₱{Number(item?.unitPrice || 0).toLocaleString()}
-              </Text>
+                <View style={s.itemInfo}>
+                  <Text style={s.brand}>{product?.brand || "VisionFit"}</Text>
 
-              <Text style={styles.itemDetail}>
-                Lens: {formatValue(item?.lensType)}
-              </Text>
+                  <Text style={s.itemName} numberOfLines={2}>
+                    {product?.name || "Product"}
+                  </Text>
 
-              <Text style={styles.itemDetail}>
-                Coating: {formatValue(item?.coating)}
-              </Text>
+                  <View style={s.optionRow}>
+                    <Text style={s.option}>
+                      Lens: {formatValue(item?.lensType)}
+                    </Text>
+                    <Text style={s.option}>
+                      Coating: {formatValue(item?.coating)}
+                    </Text>
+                  </View>
 
-              <View style={styles.itemBottomRow}>
-                <View style={styles.quantityRow}>
-                  <Pressable
-                    style={[
-                      styles.quantityButton,
-                      isUpdating && styles.disabledButton,
-                    ]}
-                    disabled={isUpdating}
-                    onPress={() => handleDecrease(item)}
-                  >
-                    <Text style={styles.quantityButtonText}>−</Text>
-                  </Pressable>
+                  <View style={s.itemBottomRow}>
+                    <Text style={s.itemPrice}>
+                      ₱{Number(item?.unitPrice || 0).toLocaleString()}
+                    </Text>
 
-                  <Text style={styles.quantityText}>{item?.quantity || 0}</Text>
+                    <View style={s.quantityRow}>
+                      <Pressable
+                        style={[
+                          s.quantityButton,
+                          isUpdating && s.disabledButton,
+                        ]}
+                        disabled={isUpdating}
+                        onPress={() => handleDecrease(item)}
+                      >
+                        <Text style={s.quantityButtonText}>−</Text>
+                      </Pressable>
 
-                  <Pressable
-                    style={[
-                      styles.quantityButton,
-                      isUpdating && styles.disabledButton,
-                    ]}
-                    disabled={isUpdating}
-                    onPress={() => handleIncrease(item)}
-                  >
-                    <Text style={styles.quantityButtonText}>+</Text>
-                  </Pressable>
+                      <Text style={s.quantityText}>{item?.quantity || 0}</Text>
+
+                      <Pressable
+                        style={[
+                          s.quantityButton,
+                          isUpdating && s.disabledButton,
+                        ]}
+                        disabled={isUpdating}
+                        onPress={() => handleIncrease(item)}
+                      >
+                        <Text style={s.quantityButtonText}>+</Text>
+                      </Pressable>
+                    </View>
+                  </View>
                 </View>
 
                 <Pressable
+                  style={s.trashButton}
                   disabled={isUpdating}
                   onPress={() => handleRemove(item)}
+                  hitSlop={8}
                 >
-                  <Text style={styles.removeText}>Remove</Text>
+                  <Ionicons name="trash-outline" size={18} color="#6A6A6A" />
                 </Pressable>
               </View>
-            </View>
+            );
+          })
+        )}
+      </ScrollView>
+
+      {items.length > 0 && (
+        <View style={s.checkout}>
+          <View>
+            <Text style={s.totalLabel}>TOTAL</Text>
+            <Text style={s.total}>₱{subtotal.toLocaleString()}</Text>
+            <Text style={s.delivery}>Delivery at checkout</Text>
           </View>
-        );
-      })}
 
-      <View style={styles.summary}>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Subtotal</Text>
-
-          <Text style={styles.summaryValue}>₱{subtotal.toLocaleString()}</Text>
+          <Pressable
+            style={s.checkoutButton}
+            onPress={() => navigation.navigate("Checkout")}
+          >
+            <Text style={s.checkoutText}>Check out</Text>
+          </Pressable>
         </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.summaryRow}>
-          <Text style={styles.totalLabel}>Total</Text>
-
-          <Text style={styles.totalValue}>₱{subtotal.toLocaleString()}</Text>
-        </View>
-      </View>
-
-      <Pressable
-        style={styles.checkoutButton}
-        onPress={() => navigation.navigate("Checkout")}
-      >
-        <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
-      </Pressable>
-    </ScrollView>
+      )}
+    </SafeAreaView>
   );
 }
 
@@ -435,12 +423,8 @@ function formatValue(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    paddingBottom: 40,
-    backgroundColor: "#FFFFFF",
-  },
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#F7F7F7" },
 
   center: {
     flex: 1,
@@ -449,114 +433,82 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 
-  loadingText: {
-    marginTop: 12,
-    color: "#666666",
-  },
+  loadingText: { marginTop: 12, color: "#666666" },
 
-  errorText: {
-    textAlign: "center",
-    color: "#444444",
-    marginBottom: 18,
-  },
+  errorText: { textAlign: "center", color: "#444444", marginBottom: 18 },
 
   retryButton: {
     paddingHorizontal: 20,
     height: 46,
-    borderRadius: 10,
+    borderRadius: 24,
     backgroundColor: "#111111",
     justifyContent: "center",
     alignItems: "center",
   },
 
-  retryButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
+  retryButtonText: { color: "#FFFFFF", fontWeight: "700" },
 
-  emptyContainer: {
-    flexGrow: 1,
-    justifyContent: "center",
+  header: {
+    height: 55,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#DDDDDD",
+    paddingHorizontal: 14,
     alignItems: "center",
-    padding: 30,
+    justifyContent: "space-between",
+    flexDirection: "row",
   },
 
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 18,
-  },
+  headerTitle: { fontSize: 14, fontWeight: "800" },
 
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
+  clearText: { fontSize: 12, fontWeight: "700", color: "#444444" },
+
+  clearTextDisabled: { color: "#CCCCCC" },
+
+  content: { padding: 14, paddingBottom: 40 },
+
+  empty: { alignItems: "center", paddingTop: 80 },
+
+  emptyTitle: { fontSize: 17, fontWeight: "800", marginTop: 16 },
 
   emptyText: {
-    textAlign: "center",
+    fontSize: 13,
     color: "#666666",
-    lineHeight: 20,
-    marginBottom: 24,
+    textAlign: "center",
+    marginTop: 8,
   },
 
   shopButton: {
-    height: 50,
+    height: 48,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: 24,
     backgroundColor: "#111111",
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
+    marginTop: 20,
   },
 
-  shopButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-  },
-
-  subtitle: {
-    fontSize: 13,
-    color: "#777777",
-    marginTop: 3,
-  },
-
-  clearText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
+  shopButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
 
   cartItem: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    padding: 12,
     flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
-    paddingBottom: 18,
-    marginBottom: 18,
+    alignItems: "flex-start",
+    gap: 11,
+    marginBottom: 10,
   },
 
-  productImageContainer: {
-    width: 110,
-    height: 110,
-    borderRadius: 14,
+  itemArt: {
+    height: 88,
+    width: 94,
+    borderRadius: 8,
     overflow: "hidden",
     backgroundColor: "#F2F2F2",
-    marginRight: 14,
   },
 
-  productImage: {
-    width: "100%",
-    height: "100%",
-  },
+  itemImage: { width: "100%", height: "100%" },
 
   imagePlaceholder: {
     flex: 1,
@@ -564,55 +516,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  placeholderText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#888888",
-  },
+  placeholderText: { fontSize: 11, fontWeight: "700", color: "#888888" },
 
-  itemContent: {
-    flex: 1,
-  },
+  itemInfo: { flex: 1 },
 
-  brand: {
-    fontSize: 11,
-    color: "#888888",
-    marginBottom: 3,
-  },
+  brand: { fontSize: 10, color: "#888888", marginBottom: 3 },
 
-  productName: {
-    fontSize: 15,
-    fontWeight: "700",
-    marginBottom: 5,
-  },
+  itemName: { fontSize: 14, fontWeight: "800", marginBottom: 6 },
 
-  itemPrice: {
-    fontSize: 15,
-    fontWeight: "800",
-    marginBottom: 7,
-  },
+  optionRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
 
-  itemDetail: {
-    fontSize: 11,
-    color: "#666666",
-    marginBottom: 3,
+  option: {
+    fontSize: 9,
+    color: "#555555",
+    backgroundColor: "#F0F0F0",
+    paddingVertical: 4,
+    paddingHorizontal: 7,
+    borderRadius: 5,
+    marginBottom: 4,
   },
 
   itemBottomRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 6,
   },
 
-  quantityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  itemPrice: { fontSize: 13, fontWeight: "800" },
+
+  quantityRow: { flexDirection: "row", alignItems: "center" },
 
   quantityButton: {
-    width: 30,
-    height: 30,
+    width: 26,
+    height: 26,
     borderWidth: 1,
     borderColor: "#D5D5D5",
     borderRadius: 8,
@@ -620,79 +557,44 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  quantityButtonText: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
+  quantityButtonText: { fontSize: 16, fontWeight: "600" },
 
   quantityText: {
-    width: 35,
+    width: 28,
     textAlign: "center",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
   },
 
-  disabledButton: {
-    opacity: 0.35,
-  },
+  disabledButton: { opacity: 0.35 },
 
-  removeText: {
-    fontSize: 11,
-    color: "#777777",
-    fontWeight: "600",
-  },
+  trashButton: { padding: 4 },
 
-  summary: {
-    backgroundColor: "#F7F7F7",
-    borderRadius: 16,
-    padding: 18,
-    marginTop: 4,
-    marginBottom: 16,
-  },
-
-  summaryRow: {
+  checkout: {
+    height: 75,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#DDDDDD",
+    paddingHorizontal: 16,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
   },
 
-  summaryLabel: {
-    fontSize: 14,
-    color: "#666666",
-  },
+  totalLabel: { fontSize: 9, fontWeight: "800", color: "#666666" },
 
-  summaryValue: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
+  total: { fontSize: 16, fontWeight: "800" },
 
-  divider: {
-    height: 1,
-    backgroundColor: "#E5E5E5",
-    marginVertical: 14,
-  },
-
-  totalLabel: {
-    fontSize: 17,
-    fontWeight: "800",
-  },
-
-  totalValue: {
-    fontSize: 20,
-    fontWeight: "800",
-  },
+  delivery: { fontSize: 10, color: "#888888" },
 
   checkoutButton: {
-    height: 54,
-    borderRadius: 12,
-    backgroundColor: "#111111",
-    justifyContent: "center",
+    height: 48,
+    paddingHorizontal: 28,
+    borderRadius: 24,
+    backgroundColor: "#000000",
     alignItems: "center",
+    justifyContent: "center",
   },
 
-  checkoutButtonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
+  checkoutText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
 });

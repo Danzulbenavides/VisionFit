@@ -10,6 +10,9 @@ import {
   View,
 } from "react-native";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+
 import { getCart } from "../../api/cart";
 
 import { getAddresses } from "../../api/addresses";
@@ -22,14 +25,17 @@ const PAYMENT_METHODS = [
   {
     value: "COD",
     label: "Cash on Delivery",
+    icon: "cash-outline",
   },
   {
     value: "E_WALLET",
     label: "E-Wallet",
+    icon: "wallet-outline",
   },
   {
     value: "CARD",
     label: "Card",
+    icon: "card-outline",
   },
 ];
 
@@ -171,230 +177,254 @@ export default function CheckoutScreen({ navigation }) {
     }
   };
 
+  const BackButton = () =>
+    navigation.canGoBack() ? (
+      <Pressable style={s.back} onPress={() => navigation.goBack()}>
+        <Ionicons name="arrow-back" size={22} color="#183B2B" />
+      </Pressable>
+    ) : null;
+
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-
-        <Text style={styles.loadingText}>Loading checkout...</Text>
-      </View>
+      <SafeAreaView style={s.container}>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color="#315B4A" />
+          <Text style={s.loadingText}>Loading checkout...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
+      <SafeAreaView style={s.container}>
+        <View style={s.center}>
+          <Text style={s.errorText}>{error}</Text>
 
-        <Pressable style={styles.retryButton} onPress={loadCheckout}>
-          <Text style={styles.retryText}>Try Again</Text>
-        </Pressable>
-      </View>
+          <Pressable style={s.button} onPress={loadCheckout}>
+            <Text style={s.buttonText}>Try Again</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (!cart?.items?.length) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.emptyTitle}>Your cart is empty</Text>
+      <SafeAreaView style={s.container}>
+        <View style={s.center}>
+          <Text style={s.title}>Your cart is empty</Text>
 
-        <Pressable
-          style={styles.retryButton}
-          onPress={() =>
-            navigation.navigate("MainTabs", {
-              screen: "Shop",
-            })
-          }
-        >
-          <Text style={styles.retryText}>Shop Eyewear</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            style={s.button}
+            onPress={() =>
+              navigation.navigate("MainTabs", {
+                screen: "Shop",
+              })
+            }
+          >
+            <Text style={s.buttonText}>Shop Eyewear</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={async () => {
-            setRefreshing(true);
-            await loadCheckout();
-          }}
-        />
-      }
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={styles.title}>Checkout</Text>
+    <SafeAreaView style={s.container}>
+      <ScrollView
+        contentContainerStyle={s.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadCheckout();
+            }}
+            tintColor="#315B4A"
+          />
+        }
+      >
+        <BackButton />
 
-      {/* ADDRESS */}
+        <Text style={s.overline}>SECURE CHECKOUT</Text>
+        <Text style={s.title}>Almost yours.</Text>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Shipping Address</Text>
+        {/* ADDRESS */}
 
-        <Pressable onPress={() => navigation.navigate("AddAddress")}>
-          <Text style={styles.link}>+ Add</Text>
-        </Pressable>
-      </View>
+        <View style={s.sectionHeader}>
+          <Text style={s.section}>SHIPPING ADDRESS</Text>
 
-      {addresses.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyCardTitle}>No address saved</Text>
-
-          <Text style={styles.emptyCardText}>
-            Add a shipping address to continue.
-          </Text>
-
-          <Pressable
-            style={styles.darkButton}
-            onPress={() => navigation.navigate("AddAddress")}
-          >
-            <Text style={styles.darkButtonText}>Add Address</Text>
+          <Pressable onPress={() => navigation.navigate("AddAddress")}>
+            <Text style={s.link}>+ Add</Text>
           </Pressable>
         </View>
-      ) : (
-        addresses.map((address) => {
-          const selected = selectedAddressId === address._id;
+
+        {addresses.length === 0 ? (
+          <View style={s.emptyCard}>
+            <Text style={s.emptyCardTitle}>No address saved</Text>
+
+            <Text style={s.emptyCardText}>
+              Add a shipping address to continue.
+            </Text>
+
+            <Pressable
+              style={s.button}
+              onPress={() => navigation.navigate("AddAddress")}
+            >
+              <Text style={s.buttonText}>Add Address</Text>
+            </Pressable>
+          </View>
+        ) : (
+          addresses.map((address) => {
+            const selected = selectedAddressId === address._id;
+
+            return (
+              <Pressable
+                key={address._id}
+                style={[s.addressCard, selected && s.addressSelected]}
+                onPress={() => setSelectedAddressId(address._id)}
+              >
+                <View style={s.addressTop}>
+                  <Text style={s.addressName}>
+                    {address.firstName} {address.lastName}
+                  </Text>
+
+                  {selected ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={19}
+                      color="#315B4A"
+                    />
+                  ) : null}
+                </View>
+
+                {address.isDefault ? (
+                  <Text style={s.defaultBadge}>Default</Text>
+                ) : null}
+
+                <Text style={s.addressText}>{address.street}</Text>
+
+                {address.apartment ? (
+                  <Text style={s.addressText}>{address.apartment}</Text>
+                ) : null}
+
+                <Text style={s.addressText}>
+                  {address.city}, {address.province} {address.postalCode}
+                </Text>
+
+                <Text style={s.addressText}>{address.country}</Text>
+
+                <Text style={s.addressPhone}>{address.phone}</Text>
+              </Pressable>
+            );
+          })
+        )}
+
+        {/* PAYMENT */}
+
+        <Text style={[s.section, s.spacedSection]}>PAYMENT</Text>
+
+        {PAYMENT_METHODS.map((method) => {
+          const selected = paymentMethod === method.value;
 
           return (
             <Pressable
-              key={address._id}
-              style={[styles.addressCard, selected && styles.addressSelected]}
-              onPress={() => setSelectedAddressId(address._id)}
+              key={method.value}
+              style={[s.payment, selected && s.paymentSelected]}
+              onPress={() => setPaymentMethod(method.value)}
             >
-              <View style={styles.addressTop}>
-                <Text style={styles.addressName}>
-                  {address.firstName} {address.lastName}
-                </Text>
+              <Ionicons name={method.icon} size={21} color="#315B4A" />
 
-                {selected ? <Text style={styles.selectedCheck}>✓</Text> : null}
-              </View>
+              <Text style={s.paymentText}>{method.label}</Text>
 
-              {address.isDefault ? (
-                <Text style={styles.defaultBadge}>Default</Text>
+              {selected ? (
+                <Ionicons name="checkmark-circle" size={19} color="#315B4A" />
               ) : null}
-
-              <Text style={styles.addressText}>{address.street}</Text>
-
-              {address.apartment ? (
-                <Text style={styles.addressText}>{address.apartment}</Text>
-              ) : null}
-
-              <Text style={styles.addressText}>
-                {address.city}, {address.province} {address.postalCode}
-              </Text>
-
-              <Text style={styles.addressText}>{address.country}</Text>
-
-              <Text style={styles.addressPhone}>{address.phone}</Text>
             </Pressable>
           );
-        })
-      )}
+        })}
 
-      {/* ITEMS */}
+        {/* ORDER SUMMARY */}
 
-      <Text style={[styles.sectionTitle, styles.spacedTitle]}>
-        Order Summary
-      </Text>
+        <Text style={[s.section, s.spacedSection]}>ORDER SUMMARY</Text>
 
-      {cart.items.map((item, index) => {
-        const productId = item?.productId?._id || item?.productId;
+        <View style={s.summary}>
+          {cart.items.map((item, index) => {
+            const productId = item?.productId?._id || item?.productId;
 
-        const itemKey = item?._id || productId || `checkout-item-${index}`;
+            const itemKey = item?._id || productId || `checkout-item-${index}`;
 
-        return (
-          <View key={itemKey} style={styles.itemRow}>
-            <View style={styles.itemInfo}>
-              <Text style={styles.itemName}>
-                {item?.productId?.name || "Product"}
-              </Text>
+            return (
+              <View key={itemKey} style={s.summaryRow}>
+                <View style={s.itemInfo}>
+                  <Text style={s.summaryText}>
+                    {item?.productId?.name || "Product"} ×{" "}
+                    {Number(item?.quantity || 0)}
+                  </Text>
 
-              <Text style={styles.itemDetails}>
-                Qty: {Number(item?.quantity || 0)} ·{" "}
-                {formatValue(item?.lensType)}
-              </Text>
+                  <Text style={s.itemDetails}>
+                    {formatValue(item?.lensType)} lenses ·{" "}
+                    {formatValue(item?.coating)}
+                  </Text>
+                </View>
 
-              <Text style={styles.itemDetails}>
-                Coating: {formatValue(item?.coating)}
-              </Text>
-            </View>
+                <Text style={s.summaryPrice}>
+                  ₱
+                  {(
+                    Number(item?.unitPrice || 0) * Number(item?.quantity || 0)
+                  ).toLocaleString()}
+                </Text>
+              </View>
+            );
+          })}
 
-            <Text style={styles.itemPrice}>
-              ₱
-              {(
-                Number(item?.unitPrice || 0) * Number(item?.quantity || 0)
-              ).toLocaleString()}
+          <View style={[s.summaryRow, s.summaryDivider]}>
+            <Text style={s.summaryText}>Subtotal</Text>
+
+            <Text style={s.summaryPrice}>₱{subtotal.toLocaleString()}</Text>
+          </View>
+
+          <View style={s.summaryRow}>
+            <Text style={s.summaryText}>Shipping</Text>
+
+            <Text style={s.summaryPrice}>
+              ₱{shippingFee.toLocaleString()}
             </Text>
           </View>
-        );
-      })}
-      {/* PAYMENT */}
 
-      <Text style={[styles.sectionTitle, styles.spacedTitle]}>
-        Payment Method
-      </Text>
+          <View style={[s.summaryRow, s.summaryDivider]}>
+            <Text style={s.summaryTotalText}>Total</Text>
 
-      {PAYMENT_METHODS.map((method) => {
-        const selected = paymentMethod === method.value;
+            <Text style={s.summaryTotalPrice}>₱{total.toLocaleString()}</Text>
+          </View>
+        </View>
 
-        return (
-          <Pressable
-            key={method.value}
-            style={[styles.paymentOption, selected && styles.paymentSelected]}
-            onPress={() => setPaymentMethod(method.value)}
-          >
-            <Text style={styles.paymentText}>{method.label}</Text>
+        <Pressable
+          style={[s.button, placingOrder && s.disabled]}
+          onPress={handlePlaceOrder}
+          disabled={placingOrder}
+        >
+          {placingOrder ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Text style={s.buttonText}>
+                Place order · ₱{total.toLocaleString()}
+              </Text>
 
-            {selected ? <Text style={styles.selectedCheck}>✓</Text> : null}
-          </Pressable>
-        );
-      })}
+              <Ionicons name="lock-closed" size={16} color="#fff" />
+            </>
+          )}
+        </Pressable>
 
-      {/* TOTAL */}
-
-      <View style={styles.totalCard}>
-        <SummaryRow label="Subtotal" value={subtotal} />
-
-        <SummaryRow label="Shipping" value={shippingFee} />
-
-        <View style={styles.divider} />
-
-        <SummaryRow label="Total" value={total} bold />
-      </View>
-
-      <Pressable
-        style={[styles.placeOrderButton, placingOrder && styles.disabled]}
-        onPress={handlePlaceOrder}
-        disabled={placingOrder}
-      >
-        {placingOrder ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.placeOrderText}>Place Order</Text>
-        )}
-      </Pressable>
-
-      <Text style={styles.disclaimer}>
-        Please review your prescription, shipping address, and order details
-        before placing your order.
-      </Text>
-    </ScrollView>
-  );
-}
-
-function SummaryRow({ label, value, bold = false }) {
-  return (
-    <View style={styles.summaryRow}>
-      <Text style={[styles.summaryLabel, bold && styles.summaryBold]}>
-        {label}
-      </Text>
-
-      <Text style={[styles.summaryValue, bold && styles.summaryBold]}>
-        ₱{Number(value || 0).toLocaleString()}
-      </Text>
-    </View>
+        <Text style={s.terms}>
+          Please review your prescription, shipping address, and order
+          details before placing your order.
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -409,11 +439,10 @@ function formatValue(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    paddingBottom: 40,
-  },
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#F7F6F1" },
+
+  content: { padding: 22, paddingBottom: 35 },
 
   center: {
     flex: 1,
@@ -422,55 +451,65 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 
-  loadingText: {
-    marginTop: 10,
-    color: "#666666",
+  loadingText: { marginTop: 10, color: "#526259" },
+
+  errorText: { textAlign: "center", color: "#183B2B", marginBottom: 18 },
+
+  back: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 25,
   },
 
-  errorText: {
-    textAlign: "center",
-    marginBottom: 18,
+  overline: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+    color: "#779081",
   },
 
   title: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: "800",
-    marginBottom: 24,
+    color: "#183B2B",
+    marginTop: 6,
+    marginBottom: 30,
   },
 
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
-  },
-
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-  },
-
-  spacedTitle: {
-    marginTop: 26,
     marginBottom: 12,
   },
 
-  link: {
-    fontSize: 13,
-    fontWeight: "700",
+  section: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+    color: "#526259",
   },
 
+  spacedSection: { marginTop: 26, marginBottom: 12 },
+
+  link: { fontSize: 13, fontWeight: "700", color: "#315B4A" },
+
   addressCard: {
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 14,
+    borderColor: "#D7DBD8",
+    borderRadius: 12,
     padding: 15,
     marginBottom: 10,
   },
 
   addressSelected: {
-    borderColor: "#111111",
-    backgroundColor: "#F7F7F7",
+    borderColor: "#315B4A",
+    backgroundColor: "#E2F0E5",
   },
 
   addressTop: {
@@ -482,19 +521,15 @@ const styles = StyleSheet.create({
   addressName: {
     fontSize: 15,
     fontWeight: "800",
+    color: "#183B2B",
     marginBottom: 6,
-  },
-
-  selectedCheck: {
-    fontSize: 18,
-    fontWeight: "800",
   },
 
   defaultBadge: {
     alignSelf: "flex-start",
     fontSize: 10,
     fontWeight: "700",
-    backgroundColor: "#111111",
+    backgroundColor: "#315B4A",
     color: "#FFFFFF",
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -502,179 +537,99 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  addressText: {
-    fontSize: 12,
-    color: "#555555",
-    marginBottom: 2,
-  },
+  addressText: { fontSize: 12, color: "#555555", marginBottom: 2 },
 
-  addressPhone: {
-    fontSize: 12,
-    color: "#555555",
-    marginTop: 5,
-  },
+  addressPhone: { fontSize: 12, color: "#555555", marginTop: 5 },
 
   emptyCard: {
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 14,
+    borderColor: "#D7DBD8",
+    borderRadius: 12,
     padding: 18,
   },
 
   emptyCardTitle: {
     fontSize: 15,
     fontWeight: "700",
+    color: "#183B2B",
     marginBottom: 5,
   },
 
-  emptyCardText: {
-    color: "#666666",
-    fontSize: 12,
-    marginBottom: 14,
-  },
+  emptyCardText: { color: "#666666", fontSize: 12, marginBottom: 14 },
 
-  darkButton: {
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: "#111111",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  darkButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-
-  itemRow: {
+  payment: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
-    paddingVertical: 13,
-  },
-
-  itemInfo: {
-    flex: 1,
-    marginRight: 10,
-  },
-
-  itemName: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-
-  itemDetails: {
-    fontSize: 11,
-    color: "#666666",
-    marginBottom: 2,
-  },
-
-  itemPrice: {
-    fontSize: 14,
-    fontWeight: "800",
-  },
-
-  paymentOption: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 10,
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: "#D7DBD8",
     borderRadius: 12,
-    padding: 15,
+    padding: 14,
     marginBottom: 9,
   },
 
   paymentSelected: {
-    borderColor: "#111111",
-    backgroundColor: "#F7F7F7",
+    borderColor: "#315B4A",
+    backgroundColor: "#E2F0E5",
   },
 
-  paymentText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  paymentText: { flex: 1, fontSize: 14, fontWeight: "600", color: "#183B2B" },
 
-  totalCard: {
-    backgroundColor: "#F7F7F7",
-    borderRadius: 15,
-    padding: 18,
-    marginTop: 20,
-    marginBottom: 16,
+  summary: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
   },
 
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 9,
+    alignItems: "flex-start",
+    marginBottom: 10,
   },
 
-  summaryLabel: {
-    fontSize: 13,
-    color: "#666666",
+  summaryDivider: {
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5E5",
+    paddingTop: 10,
+    marginTop: 2,
   },
 
-  summaryValue: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
+  itemInfo: { flex: 1, marginRight: 10 },
 
-  summaryBold: {
-    fontSize: 17,
-    color: "#111111",
-  },
+  summaryText: { fontSize: 13, color: "#333333", fontWeight: "600" },
 
-  divider: {
-    height: 1,
-    backgroundColor: "#E5E5E5",
-    marginVertical: 8,
-  },
+  itemDetails: { fontSize: 11, color: "#888888", marginTop: 3 },
 
-  placeOrderButton: {
-    height: 54,
-    borderRadius: 12,
-    backgroundColor: "#111111",
-    justifyContent: "center",
+  summaryPrice: { fontSize: 13, color: "#333333" },
+
+  summaryTotalText: { fontSize: 15, fontWeight: "800", color: "#183B2B" },
+
+  summaryTotalPrice: { fontSize: 15, fontWeight: "800", color: "#183B2B" },
+
+  button: {
+    height: 55,
+    borderRadius: 14,
+    backgroundColor: "#315B4A",
     alignItems: "center",
-  },
-
-  placeOrderText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-
-  disclaimer: {
-    textAlign: "center",
-    color: "#777777",
-    fontSize: 11,
-    lineHeight: 17,
-    marginTop: 14,
-  },
-
-  retryButton: {
-    height: 46,
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 20,
     paddingHorizontal: 20,
-    borderRadius: 10,
-    backgroundColor: "#111111",
-    justifyContent: "center",
-    alignItems: "center",
   },
 
-  retryText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "800" },
 
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 18,
-  },
+  disabled: { opacity: 0.6 },
 
-  disabled: {
-    opacity: 0.5,
+  terms: {
+    fontSize: 11,
+    color: "#888888",
+    textAlign: "center",
+    marginTop: 16,
+    lineHeight: 16,
   },
 });

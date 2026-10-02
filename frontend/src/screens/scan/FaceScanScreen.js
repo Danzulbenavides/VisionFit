@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 
 import {
   ActivityIndicator,
@@ -10,12 +10,12 @@ import {
   View,
 } from "react-native";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 
 import { analyzeFaceScan } from "../../api/faceScan";
 import { createFaceMeasurement } from "../../api/faceMeasurements";
-
-import { getFaceScanConsent, saveFaceScanConsent } from "../../utils/storage";
 
 export default function FaceScanScreen({ navigation }) {
   const cameraRef = useRef(null);
@@ -26,101 +26,55 @@ export default function FaceScanScreen({ navigation }) {
   const [result, setResult] = useState(null);
   const [photoUri, setPhotoUri] = useState(null);
 
-  const [checkingConsent, setCheckingConsent] = useState(true);
-  const [hasFaceScanConsent, setHasFaceScanConsent] = useState(false);
-
-  useEffect(() => {
-    const loadConsent = async () => {
-      try {
-        const consent = await getFaceScanConsent();
-        setHasFaceScanConsent(consent);
-      } catch (error) {
-        console.error("FACE SCAN CONSENT LOAD ERROR:", error);
-        setHasFaceScanConsent(false);
-      } finally {
-        setCheckingConsent(false);
-      }
-    };
-
-    loadConsent();
-  }, []);
-
-  const handleAcceptConsent = async () => {
-    try {
-      await saveFaceScanConsent();
-      setHasFaceScanConsent(true);
-    } catch (error) {
-      console.error("FACE SCAN CONSENT SAVE ERROR:", error);
-
-      Alert.alert(
-        "Unable to Continue",
-        "VisionFit could not save your privacy preference. Please try again.",
-      );
-    }
-  };
-
-  if (checkingConsent) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-
-        <Text style={styles.helperText}>Checking privacy settings...</Text>
-      </View>
-    );
-  }
-
-  if (!hasFaceScanConsent) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.privacyTitle}>Face Scan Privacy</Text>
-
-        <Text style={styles.privacyText}>
-          VisionFit uses your camera image to analyze facial landmarks and
-          provide eyewear recommendations.
-        </Text>
-
-        <Text style={styles.privacyText}>
-          Your image is used for face analysis. VisionFit saves the resulting
-          measurements, such as face shape, face width, face length, and pupil
-          distance, rather than saving the original scan image.
-        </Text>
-
-        <Text style={styles.privacyText}>
-          These measurements are estimates for eyewear recommendations and are
-          not medical or optometrist-grade measurements.
-        </Text>
-
-        <Pressable style={styles.primaryButton} onPress={handleAcceptConsent}>
-          <Text style={styles.primaryButtonText}>I Understand & Continue</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
   if (!permission) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-
-        <Text style={styles.helperText}>Checking camera permission...</Text>
-      </View>
+      <SafeAreaView style={s.container}>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color="#315B4A" />
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.permissionTitle}>Camera Access Required</Text>
+      <SafeAreaView style={s.container} edges={["top"]}>
+        <View style={s.content}>
+          <Pressable
+            onPress={() => navigation.canGoBack() && navigation.goBack()}
+            style={s.back}
+          >
+            <Ionicons name="arrow-back" size={22} color="#183B2B" />
+          </Pressable>
 
-        <Text style={styles.permissionText}>
-          VisionFit needs camera access to analyze your face and recommend
-          eyewear frames.
-        </Text>
+          <View style={s.permIconWrap}>
+            <Ionicons name="camera-outline" size={48} color="#315B4A" />
+          </View>
 
-        <Pressable style={styles.primaryButton} onPress={requestPermission}>
-          <Text style={styles.primaryButtonText}>Allow Camera</Text>
-        </Pressable>
-      </View>
+          <Text style={s.overline}>CAMERA ACCESS</Text>
+
+          <Text style={s.title}>Enable your camera</Text>
+
+          <Text style={s.text}>
+            VisionFit needs camera access to analyze your face and recommend
+            eyewear frames.
+          </Text>
+
+          <Pressable style={s.button} onPress={requestPermission}>
+            <Ionicons name="camera-outline" size={20} color="#fff" />
+            <Text style={s.buttonText}>Allow Camera</Text>
+          </Pressable>
+
+          {navigation.canGoBack() ? (
+            <Pressable
+              style={s.textBtn}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={s.textBtnText}>Go back</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -239,143 +193,154 @@ export default function FaceScanScreen({ navigation }) {
 
   if (result) {
     return (
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.title}>Face Scan Complete</Text>
+      <SafeAreaView style={s.container} edges={["top"]}>
+        <ScrollView
+          contentContainerStyle={s.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <Pressable
+            onPress={() => navigation.canGoBack() && navigation.goBack()}
+            style={s.back}
+          >
+            <Ionicons name="arrow-back" size={22} color="#183B2B" />
+          </Pressable>
 
-        <Text style={styles.subtitle}>
-          VisionFit automatically analyzed your face using facial landmarks.
-        </Text>
+          <View style={s.resultIcon}>
+            <Ionicons name="sparkles" size={42} color="#315B4A" />
+          </View>
 
-        <View style={styles.resultCard}>
-          <Text style={styles.smallLabel}>Detected Face Shape</Text>
+          <Text style={s.overline}>ANALYSIS COMPLETE</Text>
 
-          <Text style={styles.faceShape}>{formatValue(result.faceShape)}</Text>
-
-          <View style={styles.divider} />
-
-          <ResultRow
-            label="Estimated Face Width"
-            value={`${result.faceWidth} mm`}
-          />
-
-          <ResultRow
-            label="Estimated Face Length"
-            value={`${result.faceLength} mm`}
-          />
-
-          <ResultRow
-            label="Estimated PD"
-            value={`${result.pupilDistance} mm`}
-          />
-
-          <ResultRow
-            label="Confidence"
-            value={`${Math.round(result.confidence * 100)}%`}
-          />
-        </View>
-
-        <View style={styles.notice}>
-          <Text style={styles.noticeTitle}>Important</Text>
-
-          <Text style={styles.noticeText}>
-            These dimensions are estimates derived from facial landmarks for
-            eyewear recommendations. They are not clinical or optometrist-grade
-            measurements.
+          <Text style={s.title}>
+            Your face shape is{"\n"}
+            {formatValue(result.faceShape)}
           </Text>
-        </View>
 
-        <Pressable
-          style={styles.primaryButton}
-          onPress={saveResult}
-          disabled={scanning}
-        >
-          {scanning ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.primaryButtonText}>
-              Save & View Recommendations
+          <Text style={s.text}>
+            VisionFit analyzed your face using facial landmarks. Here's what
+            it found.
+          </Text>
+
+          <View style={s.resultCard}>
+            <ResultRow
+              label="Estimated Face Width"
+              value={`${result.faceWidth} mm`}
+            />
+
+            <ResultRow
+              label="Estimated Face Length"
+              value={`${result.faceLength} mm`}
+            />
+
+            <ResultRow
+              label="Estimated PD"
+              value={`${result.pupilDistance} mm`}
+            />
+
+            <ResultRow
+              label="Confidence"
+              value={`${Math.round(result.confidence * 100)}%`}
+            />
+          </View>
+
+          <View style={s.notice}>
+            <Text style={s.noticeTitle}>Important</Text>
+
+            <Text style={s.noticeText}>
+              These dimensions are estimates derived from facial landmarks for
+              eyewear recommendations. They are not clinical or
+              optometrist-grade measurements.
             </Text>
-          )}
-        </Pressable>
+          </View>
 
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={retake}
-          disabled={scanning}
-        >
-          <Text style={styles.secondaryButtonText}>Scan Again</Text>
-        </Pressable>
-      </ScrollView>
-    );
-  }
+          <Pressable
+            style={[s.button, scanning && s.disabled]}
+            onPress={saveResult}
+            disabled={scanning}
+          >
+            {scanning ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Text style={s.buttonText}>See my frame matches</Text>
+                <Ionicons name="arrow-forward" size={19} color="#fff" />
+              </>
+            )}
+          </Pressable>
 
-  if (scanning) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-
-        <Text style={styles.analyzingTitle}>Analyzing your face...</Text>
-
-        <Text style={styles.analyzingText}>
-          VisionFit is sending your photo to the face analysis service.
-        </Text>
-
-        <Text style={styles.analyzingSubtext}>Please wait a few seconds.</Text>
-      </View>
+          <Pressable
+            style={s.retakeBtn}
+            onPress={retake}
+            disabled={scanning}
+          >
+            <Ionicons name="refresh-outline" size={18} color="#315B4A" />
+            <Text style={s.retakeBtnText}>Scan again</Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.cameraContainer}>
-      {/* CAMERA */}
+    <View style={s.cameraContainer}>
       <CameraView
         ref={cameraRef}
-        style={styles.camera}
+        style={s.camera}
         facing="front"
         mode="picture"
         mirror
       />
 
-      {/* EVERYTHING BELOW IS ABOVE THE CAMERA */}
-      <View pointerEvents="none" style={styles.overlay}>
-        {/* FACE GUIDE */}
-        <View style={styles.faceGuide}>
-          <View style={[styles.guideCorner, styles.guideTopLeft]} />
-
-          <View style={[styles.guideCorner, styles.guideTopRight]} />
-
-          <View style={[styles.guideCorner, styles.guideBottomLeft]} />
-
-          <View style={[styles.guideCorner, styles.guideBottomRight]} />
-        </View>
-
-        {/* GUIDE TEXT */}
-        <Text style={styles.guideText}>Center your face inside the guide</Text>
-
-        <Text style={styles.guideSubtext}>
-          Look straight at the camera and keep your head level.
-        </Text>
-      </View>
-
-      {/* HEADER */}
-      <View style={styles.cameraHeader}>
-        <Text style={styles.cameraTitle}>VisionFit Face Scan</Text>
-
-        <Text style={styles.cameraSubtitle}>
-          Take a clear front-facing photo
-        </Text>
-      </View>
-
-      {/* CAPTURE BUTTON */}
-      <View style={styles.captureArea}>
-        <Pressable style={styles.captureButtonOuter} onPress={takePhoto}>
-          <View style={styles.captureButtonInner} />
+      {/* Overlay is a sibling positioned on top of the camera, not a
+          child of CameraView — CameraView does not support children. */}
+      <View style={s.cameraOverlay}>
+        <Pressable
+          onPress={() => navigation.canGoBack() && navigation.goBack()}
+          style={s.cameraBack}
+        >
+          <Ionicons name="arrow-back" size={22} color="#fff" />
         </Pressable>
 
-        <Text style={styles.captureHint}>Tap to scan</Text>
+        <View style={s.guideWrap} pointerEvents="none">
+          <View style={s.guide}>
+            <View style={[s.corner, s.cornerTL]} />
+            <View style={[s.corner, s.cornerTR]} />
+            <View style={[s.corner, s.cornerBL]} />
+            <View style={[s.corner, s.cornerBR]} />
+          </View>
+
+          <Text style={s.guideText}>Center your face inside the guide</Text>
+
+          <Text style={s.guideSubtext}>
+            Look straight at the camera and keep your head level.
+          </Text>
+        </View>
+
+        <View style={s.bottomBar}>
+          <Text style={s.privacy}>
+            <Ionicons
+              name="lock-closed-outline"
+              size={12}
+              color="rgba(255,255,255,0.7)"
+            />{" "}
+            Your scan is only used to generate your face-shape result.
+          </Text>
+
+          <Pressable
+            style={[s.captureBtn, scanning && s.captureBtnDisabled]}
+            onPress={takePhoto}
+            disabled={scanning}
+          >
+            {scanning ? (
+              <View style={s.analyzingWrap}>
+                <Ionicons name="hourglass-outline" size={22} color="#fff" />
+                <Text style={s.captureBtnText}>Analyzing...</Text>
+              </View>
+            ) : (
+              <Ionicons name="camera" size={28} color="#fff" />
+            )}
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -383,10 +348,10 @@ export default function FaceScanScreen({ navigation }) {
 
 function ResultRow({ label, value }) {
   return (
-    <View style={styles.resultRow}>
-      <Text style={styles.resultLabel}>{label}</Text>
+    <View style={s.resultRow}>
+      <Text style={s.resultLabel}>{label}</Text>
 
-      <Text style={styles.resultValue}>{value}</Text>
+      <Text style={s.resultValue}>{value}</Text>
     </View>
   );
 }
@@ -402,74 +367,78 @@ function formatValue(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-const styles = StyleSheet.create({
-  privacyTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    marginBottom: 16,
-    textAlign: "center",
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#F7F6F1" },
+
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+
+  content: { padding: 22, paddingBottom: 40 },
+
+  back: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 28,
   },
 
-  privacyText: {
-    width: "100%",
-    maxWidth: 420,
+  overline: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+    color: "#779081",
+  },
+
+  title: {
+    fontSize: 30,
+    fontWeight: "800",
+    lineHeight: 36,
+    color: "#183B2B",
+    marginTop: 6,
+  },
+
+  text: {
     fontSize: 14,
     lineHeight: 21,
-    color: "#666666",
-    textAlign: "center",
-    marginBottom: 14,
-  },
-  /* =========================
-     GENERAL
-  ========================= */
-
-  container: {
-    padding: 20,
-    paddingBottom: 40,
-    backgroundColor: "#FFFFFF",
+    color: "#64736A",
+    marginTop: 11,
   },
 
-  center: {
-    flex: 1,
+  permIconWrap: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: "#DDEDDC",
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
-    backgroundColor: "#FFFFFF",
+    marginTop: 48,
+    marginBottom: 30,
   },
 
-  helperText: {
-    marginTop: 12,
-    color: "#666666",
+  button: {
+    height: 55,
+    borderRadius: 14,
+    backgroundColor: "#315B4A",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 23,
   },
 
-  /* =========================
-     PERMISSION
-  ========================= */
+  buttonText: { fontSize: 16, fontWeight: "800", color: "#fff" },
 
-  permissionTitle: {
-    fontSize: 23,
-    fontWeight: "800",
-    textAlign: "center",
-    marginBottom: 8,
-  },
+  disabled: { opacity: 0.6 },
 
-  permissionText: {
-    fontSize: 13,
-    lineHeight: 20,
-    textAlign: "center",
-    color: "#666666",
-    marginBottom: 22,
-  },
+  textBtn: { marginTop: 16, alignItems: "center" },
 
-  /* =========================
-     CAMERA
-  ========================= */
+  textBtnText: { fontSize: 14, fontWeight: "600", color: "#315B4A" },
 
-  cameraContainer: {
-    flex: 1,
-    backgroundColor: "#000000",
-    position: "relative",
-  },
+  /* Camera */
+
+  cameraContainer: { flex: 1, backgroundColor: "#000", position: "relative" },
 
   camera: {
     position: "absolute",
@@ -477,431 +446,170 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    width: "100%",
-    height: "100%",
   },
 
-  /* =========================
-     CAMERA OVERLAY
-  ========================= */
-
-  overlay: {
+  cameraOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+    justifyContent: "space-between",
+    padding: 20,
+  },
 
-    justifyContent: "center",
+  cameraBack: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(0,0,0,0.3)",
     alignItems: "center",
-
-    zIndex: 50,
-
-    elevation: 50,
+    justifyContent: "center",
+    marginTop: 10,
   },
 
-  /* =========================
-     FACE GUIDE
-  ========================= */
+  guideWrap: { alignItems: "center" },
 
-  faceGuide: {
-    width: 280,
-    height: 380,
+  guide: { width: 240, height: 280, borderRadius: 20 },
 
-    position: "relative",
+  corner: { position: "absolute", width: 36, height: 36, borderColor: "#fff" },
 
-    zIndex: 100,
-
-    elevation: 100,
-  },
-
-  guideCorner: {
-    position: "absolute",
-
-    width: 55,
-    height: 55,
-
-    borderColor: "#FFFFFF",
-
-    zIndex: 101,
-
-    elevation: 101,
-  },
-
-  guideTopLeft: {
+  cornerTL: {
     top: 0,
     left: 0,
-
-    borderTopWidth: 5,
-    borderLeftWidth: 5,
-
-    borderTopLeftRadius: 18,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderTopLeftRadius: 16,
   },
 
-  guideTopRight: {
+  cornerTR: {
     top: 0,
     right: 0,
-
-    borderTopWidth: 5,
-    borderRightWidth: 5,
-
-    borderTopRightRadius: 18,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderTopRightRadius: 16,
   },
 
-  guideBottomLeft: {
+  cornerBL: {
     bottom: 0,
     left: 0,
-
-    borderBottomWidth: 5,
-    borderLeftWidth: 5,
-
-    borderBottomLeftRadius: 18,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderBottomLeftRadius: 16,
   },
 
-  guideBottomRight: {
+  cornerBR: {
     bottom: 0,
     right: 0,
-
-    borderBottomWidth: 5,
-    borderRightWidth: 5,
-
-    borderBottomRightRadius: 18,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderBottomRightRadius: 16,
   },
-
-  /* =========================
-     GUIDE TEXT
-  ========================= */
 
   guideText: {
-    color: "#FFFFFF",
-
-    fontSize: 15,
-
+    color: "#fff",
+    fontSize: 14,
     fontWeight: "700",
-
+    marginTop: 16,
     textAlign: "center",
-
-    marginTop: 18,
-
-    zIndex: 100,
-
-    textShadowColor: "#000000",
-    textShadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
 
   guideSubtext: {
-    color: "#FFFFFF",
-
+    color: "#fff",
     fontSize: 12,
-
     textAlign: "center",
-
-    marginTop: 7,
-
-    paddingHorizontal: 40,
-
-    zIndex: 100,
-
-    textShadowColor: "#000000",
-    textShadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    marginTop: 6,
+    paddingHorizontal: 30,
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
 
-  /* =========================
-     CAMERA HEADER
-  ========================= */
+  bottomBar: { alignItems: "center", paddingBottom: 20 },
 
-  cameraHeader: {
-    position: "absolute",
+  privacy: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.7)",
+    marginBottom: 20,
+    textAlign: "center",
+  },
 
-    top: 55,
-
-    left: 20,
-    right: 20,
-
+  captureBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#315B4A",
+    borderWidth: 4,
+    borderColor: "#fff",
     alignItems: "center",
-
-    zIndex: 80,
-
-    elevation: 80,
+    justifyContent: "center",
   },
 
-  cameraTitle: {
-    color: "#FFFFFF",
+  captureBtnDisabled: { opacity: 0.7 },
 
-    fontSize: 24,
+  captureBtnText: { color: "#fff", fontSize: 12, fontWeight: "700", marginTop: 2 },
 
-    fontWeight: "800",
+  analyzingWrap: { alignItems: "center" },
 
-    textShadowColor: "#000000",
-    textShadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    textShadowRadius: 4,
-  },
+  /* Result */
 
-  cameraSubtitle: {
-    color: "#FFFFFF",
-
-    fontSize: 12,
-
-    marginTop: 5,
-
-    textShadowColor: "#000000",
-    textShadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    textShadowRadius: 4,
-  },
-
-  /* =========================
-     CAPTURE BUTTON
-  ========================= */
-
-  captureArea: {
-    position: "absolute",
-
-    bottom: 40,
-
-    width: "100%",
-
-    alignItems: "center",
-
-    zIndex: 80,
-
-    elevation: 80,
-  },
-
-  captureButtonOuter: {
-    width: 78,
-    height: 78,
-
-    borderRadius: 39,
-
-    borderWidth: 5,
-
-    borderColor: "#FFFFFF",
-
+  resultIcon: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: "#DDEDDC",
     justifyContent: "center",
     alignItems: "center",
-  },
-
-  captureButtonInner: {
-    width: 62,
-    height: 62,
-
-    borderRadius: 31,
-
-    backgroundColor: "#FFFFFF",
-  },
-
-  captureHint: {
-    color: "#FFFFFF",
-
-    fontSize: 12,
-
     marginTop: 8,
-
-    textShadowColor: "#000000",
-    textShadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    textShadowRadius: 4,
-  },
-
-  /* =========================
-     ANALYZING
-  ========================= */
-
-  analyzingTitle: {
-    fontSize: 23,
-
-    fontWeight: "800",
-
-    marginTop: 20,
-
-    textAlign: "center",
-  },
-
-  analyzingText: {
-    fontSize: 13,
-
-    color: "#666666",
-
-    lineHeight: 20,
-
-    textAlign: "center",
-
-    marginTop: 8,
-  },
-
-  analyzingSubtext: {
-    fontSize: 12,
-
-    color: "#999999",
-
-    marginTop: 8,
-  },
-
-  /* =========================
-     RESULTS
-  ========================= */
-
-  title: {
-    fontSize: 29,
-
-    fontWeight: "800",
-
-    marginBottom: 6,
-  },
-
-  subtitle: {
-    fontSize: 13,
-
-    color: "#666666",
-
-    lineHeight: 20,
-
-    marginBottom: 22,
+    marginBottom: 30,
   },
 
   resultCard: {
-    backgroundColor: "#F7F7F7",
-
+    backgroundColor: "#fff",
     borderRadius: 18,
-
-    padding: 20,
-  },
-
-  smallLabel: {
-    fontSize: 11,
-
-    color: "#888888",
-  },
-
-  faceShape: {
-    fontSize: 28,
-
-    fontWeight: "800",
-
-    marginTop: 5,
-  },
-
-  divider: {
-    height: 1,
-
-    backgroundColor: "#E2E2E2",
-
-    marginVertical: 18,
+    padding: 19,
+    marginTop: 24,
   },
 
   resultRow: {
     flexDirection: "row",
-
     justifyContent: "space-between",
-
     alignItems: "center",
-
     marginBottom: 14,
   },
 
-  resultLabel: {
-    flex: 1,
+  resultLabel: { flex: 1, color: "#64736A", fontSize: 12 },
 
-    color: "#666666",
-
-    fontSize: 12,
-  },
-
-  resultValue: {
-    fontSize: 14,
-
-    fontWeight: "800",
-  },
+  resultValue: { fontSize: 14, fontWeight: "800", color: "#183B2B" },
 
   notice: {
-    backgroundColor: "#F5F5F5",
-
+    backgroundColor: "#EFEFEA",
     borderRadius: 12,
-
     padding: 14,
-
-    marginVertical: 18,
+    marginTop: 18,
+    marginBottom: 4,
   },
 
   noticeTitle: {
     fontSize: 13,
-
     fontWeight: "800",
-
     marginBottom: 5,
+    color: "#183B2B",
   },
 
-  noticeText: {
-    fontSize: 12,
+  noticeText: { fontSize: 12, color: "#64736A", lineHeight: 18 },
 
-    color: "#666666",
-
-    lineHeight: 18,
-  },
-
-  /* =========================
-     BUTTONS
-  ========================= */
-
-  primaryButton: {
-    height: 52,
-
-    borderRadius: 12,
-
-    backgroundColor: "#111111",
-
-    justifyContent: "center",
-
+  retakeBtn: {
+    flexDirection: "row",
     alignItems: "center",
-
-    paddingHorizontal: 20,
-  },
-
-  primaryButtonText: {
-    color: "#FFFFFF",
-
-    fontSize: 14,
-
-    fontWeight: "700",
-
-    textAlign: "center",
-  },
-
-  secondaryButton: {
-    height: 50,
-
-    borderWidth: 1,
-
-    borderColor: "#D5D5D5",
-
-    borderRadius: 12,
-
     justifyContent: "center",
-
-    alignItems: "center",
-
-    marginTop: 10,
+    gap: 6,
+    marginTop: 20,
+    paddingVertical: 12,
   },
 
-  secondaryButtonText: {
-    fontSize: 14,
-
-    fontWeight: "700",
-  },
+  retakeBtnText: { fontSize: 14, fontWeight: "600", color: "#315B4A" },
 });

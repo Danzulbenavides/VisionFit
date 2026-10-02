@@ -11,14 +11,28 @@ const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING: "Pending",
   PROCESSING: "Processing",
   SHIPPED: "Shipped",
+  IN_TRANSIT: "In Transit",
+  OUT_FOR_DELIVERY: "Out for Delivery",
   DELIVERED: "Delivered",
   CANCELLED: "Cancelled",
+};
+
+const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
+  PENDING: ["PROCESSING", "CANCELLED"],
+  PROCESSING: ["SHIPPED", "CANCELLED"],
+  SHIPPED: ["IN_TRANSIT"],
+  IN_TRANSIT: ["OUT_FOR_DELIVERY"],
+  OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED"],
+  DELIVERED: [],
+  CANCELLED: [],
 };
 
 const ORDER_STATUS_CLASS: Record<OrderStatus, string> = {
   PENDING: "status-badge status-warning",
   PROCESSING: "status-badge status-warning",
   SHIPPED: "status-badge status-active",
+  IN_TRANSIT: "status-badge status-active",
+  OUT_FOR_DELIVERY: "status-badge status-active",
   DELIVERED: "status-badge status-active",
   CANCELLED: "status-badge status-inactive",
 };
@@ -92,11 +106,26 @@ export default function Orders() {
       return;
     }
 
-    try {
+        let note: string | undefined;
+
+    if (newStatus === "CANCELLED") {
+      const reason = window.prompt(
+        "Cancel this order? The customer will be emailed and the stock will be restored.\n\nReason (optional, shown to the customer):",
+      );
+
+      // Pressing "Cancel" on the prompt keeps the order as it is.
+      if (reason === null) {
+        return;
+      }
+
+      note = reason.trim() || undefined;
+    }
+
+        try {
       setUpdatingId(order._id);
       setError("");
 
-      const updatedOrder = await updateOrderStatus(order._id, newStatus);
+      const updatedOrder = await updateOrderStatus(order._id, newStatus, note);
 
       setOrders((currentOrders) =>
         currentOrders.map((currentOrder) =>
@@ -127,6 +156,14 @@ export default function Orders() {
 
   const shippedCount = orders.filter(
     (order) => order.orderStatus === "SHIPPED",
+  ).length;
+
+    const inTransitCount = orders.filter(
+    (order) => order.orderStatus === "IN_TRANSIT",
+  ).length;
+
+    const outForDeliveryCount = orders.filter(
+    (order) => order.orderStatus === "OUT_FOR_DELIVERY",
   ).length;
 
   const deliveredCount = orders.filter(
@@ -268,7 +305,10 @@ export default function Orders() {
                   <td>
                     <select
                       value={order.orderStatus}
-                      disabled={updatingId === order._id}
+                      disabled={
+                        updatingId === order._id ||
+                        NEXT_STATUSES[order.orderStatus].length === 0
+                      }
                       onChange={(event) =>
                         handleStatusChange(
                           order,
@@ -276,15 +316,14 @@ export default function Orders() {
                         )
                       }
                     >
-                      <option value="PENDING">Pending</option>
+                      {[order.orderStatus, ...NEXT_STATUSES[order.orderStatus]].map(
+                        (status) => (
+                          <option key={status} value={status}>
+                            {ORDER_STATUS_LABELS[status]}
+                          </option>
+                        ),
+                      )}
 
-                      <option value="PROCESSING">Processing</option>
-
-                      <option value="SHIPPED">Shipped</option>
-
-                      <option value="DELIVERED">Delivered</option>
-
-                      <option value="CANCELLED">Cancelled</option>
                     </select>
                   </td>
                 </tr>
@@ -308,6 +347,14 @@ export default function Orders() {
 
           <span>
             Shipped: <strong>{shippedCount}</strong>
+          </span>
+
+          <span>
+            In Transit: <strong>{inTransitCount}</strong>
+          </span>
+
+          <span>
+            Out for Delivery: <strong>{outForDeliveryCount}</strong>
           </span>
 
           <span>

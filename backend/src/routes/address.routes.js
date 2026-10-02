@@ -8,6 +8,7 @@ import {
   getAddressById,
   updateAddress,
   deleteAddress,
+  getServiceArea,
 } from "../controllers/address.controller.js";
 
 const router = Router();
@@ -15,6 +16,8 @@ const router = Router();
 router.use(authenticate);
 
 router.post("/", createAddress);
+
+router.get("/service-area", getServiceArea);
 
 router.get("/", getAddresses);
 

@@ -4,30 +4,39 @@ import Address from "../models/Address.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
-export const createAddress = asyncHandler(async (req, res) => {
-  const {
-    firstName,
-    lastName,
-    country,
-    street,
-    apartment,
-    city,
-    province,
-    postalCode,
-    phone,
-    isDefault,
-  } = req.body;
+import {
+  SERVICE_AREA,
+  DAGUPAN_BARANGAYS,
+  OUTSIDE_SERVICE_AREA_MESSAGE,
+  findBarangay,
+  isDagupanCity,
+} from "../utils/serviceArea.js";
 
-  const requiredFields = [
-    "firstName",
-    "lastName",
-    "country",
-    "street",
-    "city",
-    "province",
-    "postalCode",
-    "phone",
-  ];
+export const getServiceArea = asyncHandler(async (req, res) => {
+  return res.status(200).json({
+    data: { ...SERVICE_AREA, barangays: DAGUPAN_BARANGAYS },
+    error: null,
+  });
+});
+
+export const createAddress = asyncHandler(async (req, res) => {
+    const { firstName,
+       lastName, 
+       street, 
+       apartment, 
+       barangay, 
+       phone, 
+       isDefault 
+      } =
+    req.body;
+
+    const requiredFields = [
+      "firstName", 
+      "lastName", 
+      "street", 
+      "barangay", 
+      "phone"
+    ];
 
   const missingFields = requiredFields.filter((field) => {
     const value = req.body[field];
@@ -43,6 +52,19 @@ export const createAddress = asyncHandler(async (req, res) => {
     throw new ApiError(
       400,
       `Required fields missing: ${missingFields.join(", ")}`,
+    );
+  }
+
+    if (req.body.city && !isDagupanCity(req.body.city)) {
+    throw new ApiError(400, OUTSIDE_SERVICE_AREA_MESSAGE);
+  }
+
+  const canonicalBarangay = findBarangay(barangay);
+
+  if (!canonicalBarangay) {
+    throw new ApiError(
+      400,
+      "Please choose a valid barangay in Dagupan City. We only deliver within Dagupan City.",
     );
   }
 
@@ -68,13 +90,14 @@ export const createAddress = asyncHandler(async (req, res) => {
     userId: req.user.userId,
     firstName: firstName.trim(),
     lastName: lastName.trim(),
-    country: country.trim(),
     street: street.trim(),
     apartment: apartment?.trim() || null,
-    city: city.trim(),
-    province: province.trim(),
-    postalCode: postalCode.trim(),
     phone: phone.trim(),
+    barangay: canonicalBarangay,
+    city: SERVICE_AREA.city,
+    province: SERVICE_AREA.province,
+    country: SERVICE_AREA.country,
+    postalCode: SERVICE_AREA.postalCode,
     isDefault: existingAddress === null ? true : isDefault === true,
   });
 
@@ -130,12 +153,8 @@ export const updateAddress = asyncHandler(async (req, res) => {
   const allowedFields = [
     "firstName",
     "lastName",
-    "country",
     "street",
     "apartment",
-    "city",
-    "province",
-    "postalCode",
     "phone",
     "isDefault",
   ];
@@ -149,6 +168,23 @@ export const updateAddress = asyncHandler(async (req, res) => {
           ? req.body[field].trim()
           : req.body[field];
     }
+  }
+    if (req.body.barangay !== undefined) {
+    if (req.body.city && !isDagupanCity(req.body.city)) {
+      throw new ApiError(400, OUTSIDE_SERVICE_AREA_MESSAGE);
+    }
+
+    const canonicalBarangay = findBarangay(req.body.barangay);
+
+    if (!canonicalBarangay) {
+      throw new ApiError(400, "Please choose a valid barangay in Dagupan City.");
+    }
+
+    updates.barangay = canonicalBarangay;
+    updates.city = SERVICE_AREA.city;
+    updates.province = SERVICE_AREA.province;
+    updates.country = SERVICE_AREA.country;
+    updates.postalCode = SERVICE_AREA.postalCode;
   }
 
   if (updates.isDefault === true) {

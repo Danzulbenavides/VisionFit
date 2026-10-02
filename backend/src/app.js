@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
+import epaymentRoutes from "./routes/epayment.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
@@ -75,6 +76,19 @@ app.use(
     credentials: true,
   }),
 );
+
+// -----------------------------------------
+// E-Payment
+// -----------------------------------------
+
+
+app.use(
+  "/api/epayments/webhook",
+  express.raw({
+    type: "application/json",
+  }),
+);
+
 // -----------------------------------------
 // JSON body parser
 // -----------------------------------------
@@ -155,6 +169,7 @@ app.use("/api/admin/analytics", analyticsRoutes);
 app.use("/api/admin/audit-logs", auditLogRoutes);
 app.use("/api/face-scan", faceScanRoutes);
 app.use("/api/virtual-try-on", virtualTryOnRoutes);
+app.use("/api/epayments", epaymentRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 

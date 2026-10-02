@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,24 +13,16 @@ import {
   View,
 } from "react-native";
 
-import { createAddress } from "../../api/addresses";
+import { createAddress, getServiceArea } from "../../api/addresses";
 
 export default function AddAddressScreen({ navigation }) {
   const [firstName, setFirstName] = useState("");
 
   const [lastName, setLastName] = useState("");
 
-  const [country, setCountry] = useState("Philippines");
-
   const [street, setStreet] = useState("");
 
   const [apartment, setApartment] = useState("");
-
-  const [city, setCity] = useState("");
-
-  const [province, setProvince] = useState("");
-
-  const [postalCode, setPostalCode] = useState("");
 
   const [phone, setPhone] = useState("");
 
@@ -36,16 +30,25 @@ export default function AddAddressScreen({ navigation }) {
 
   const [saving, setSaving] = useState(false);
 
+  const [barangay, setBarangay] = useState("");
+
+  const [serviceArea, setServiceArea] = useState(null);
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  useEffect(() => {
+    getServiceArea()
+      .then((result) => result.data && setServiceArea(result.data))
+      .catch((err) => console.error("Load service area error:", err));
+  }, []);
+
   const handleSave = async () => {
     if (
       !firstName.trim() ||
       !lastName.trim() ||
-      !country.trim() ||
       !street.trim() ||
-      !city.trim() ||
-      !province.trim() ||
-      !postalCode.trim() ||
-      !phone.trim()
+      !phone.trim() ||
+      !barangay.trim()
     ) {
       Alert.alert(
         "Missing Information",
@@ -58,12 +61,9 @@ export default function AddAddressScreen({ navigation }) {
     const payload = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      country: country.trim(),
       street: street.trim(),
       apartment: apartment.trim() || null,
-      city: city.trim(),
-      province: province.trim(),
-      postalCode: postalCode.trim(),
+      barangay,
       phone: phone.trim(),
       isDefault,
     };
@@ -108,6 +108,12 @@ export default function AddAddressScreen({ navigation }) {
         Enter the address where your order should be delivered.
       </Text>
 
+      <View style={styles.areaBanner}>
+        <Text style={styles.areaBannerText}>
+          We currently deliver only within Dagupan City, Pangasinan.
+        </Text>
+      </View>
+
       <Field
         label="First Name *"
         value={firstName}
@@ -120,13 +126,6 @@ export default function AddAddressScreen({ navigation }) {
         value={lastName}
         onChangeText={setLastName}
         placeholder="Last name"
-      />
-
-      <Field
-        label="Country *"
-        value={country}
-        onChangeText={setCountry}
-        placeholder="Country"
       />
 
       <Field
@@ -143,27 +142,12 @@ export default function AddAddressScreen({ navigation }) {
         placeholder="Optional"
       />
 
-      <Field
-        label="City *"
-        value={city}
-        onChangeText={setCity}
-        placeholder="City"
-      />
-
-      <Field
-        label="Province *"
-        value={province}
-        onChangeText={setProvince}
-        placeholder="Province"
-      />
-
-      <Field
-        label="Postal Code *"
-        value={postalCode}
-        onChangeText={setPostalCode}
-        placeholder="Postal code"
-        keyboardType="number-pad"
-      />
+      <View style={styles.field}>
+          <Text style={styles.label}>Barangay *</Text>
+        <Pressable style={styles.pickerButton} onPress={() => setPickerOpen(true)}>
+          <Text>{barangay || "Select your barangay"}</Text>
+        </Pressable>
+      </View>
 
       <Field
         label="Phone *"
@@ -195,6 +179,25 @@ export default function AddAddressScreen({ navigation }) {
           <Text style={styles.saveButtonText}>Save Address</Text>
         )}
       </Pressable>
+
+            <Modal visible={pickerOpen} transparent animationType="slide"
+        onRequestClose={() => setPickerOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setPickerOpen(false)}>
+          <View style={styles.modalSheet}>
+            <FlatList
+              data={serviceArea?.barangays || []}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <Pressable style={styles.modalOption}
+                  onPress={() => { setBarangay(item); setPickerOpen(false); }}>
+                  <Text>{item}</Text>
+                </Pressable>
+              )}
+            />
+          </View>
+        </Pressable>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -308,4 +311,11 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.5,
   },
+
+  areaBanner: { backgroundColor: "#EEF5F1", borderRadius: 10, padding: 12, marginBottom: 18 },
+  areaBannerText: { fontSize: 12, color: "#2F4F3E" },
+  pickerButton: { height: 48, borderWidth: 1, borderColor: "#D5D5D5", borderRadius: 10, paddingHorizontal: 13, justifyContent: "center" },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
+  modalSheet: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 18, borderTopRightRadius: 18, maxHeight: "70%" },
+  modalOption: { paddingVertical: 14, paddingHorizontal: 20, borderTopWidth: 1, borderTopColor: "#F0F0F0" },
 });

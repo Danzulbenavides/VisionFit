@@ -29,3 +29,9 @@ export const deleteAddress = async (id) => {
 
   return response.data;
 };
+
+export const getServiceArea = async () => {
+  const response = await apiClient.get("/addresses/service-area");
+
+  return response.data;
+};

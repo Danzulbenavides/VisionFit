@@ -398,7 +398,11 @@ const ALLOWED_STATUS_TRANSITIONS = {
 
   PROCESSING: ["SHIPPED", "CANCELLED"],
 
-  SHIPPED: ["DELIVERED"],
+  SHIPPED: ["IN_TRANSIT"],
+
+  IN_TRANSIT: ["OUT_FOR_DELIVERY"],
+
+  OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED"],
 
   DELIVERED: [],
 
@@ -407,7 +411,7 @@ const ALLOWED_STATUS_TRANSITIONS = {
 
 export const updateOrderStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { orderStatus } = req.body;
+  const { orderStatus, note } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new ApiError(400, "Invalid order ID");
@@ -417,6 +421,8 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     "PENDING",
     "PROCESSING",
     "SHIPPED",
+    "IN_TRANSIT",
+    "OUT_FOR_DELIVERY",
     "DELIVERED",
     "CANCELLED",
   ];
@@ -443,9 +449,33 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     );
   }
 
-  order.orderStatus = orderStatus;
+    const previousStatus = order.orderStatus;
 
-  await order.save();
+  if (orderStatus === "CANCELLED" && previousStatus !== "CANCELLED") {
+    // Put the stock back and cancel in one transaction
+    const session = await mongoose.startSession();
+
+    try {
+      await session.withTransaction(async () => {
+        for (const item of order.items) {
+          await Product.updateOne(
+            { _id: item.productId },
+            { $inc: { stock: item.quantity } },
+            { session },
+          );
+        }
+
+        order.orderStatus = "CANCELLED";
+        order.cancellationReason = note || null;
+        await order.save({ session });
+      });
+    } finally {
+      await session.endSession();
+    }
+  } else {
+    order.orderStatus = orderStatus;
+    await order.save();
+  }
 
   return res.status(200).json({
     data: order,

@@ -293,15 +293,38 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
+        /*
+     * 
+     * E-Payment Reference
+     */
+    paymentReference: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    /*
+     * E-Payment Gateway
+     */
+    paymentGatewayMetadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+
     /*
      * Order lifecycle.
      */
     orderStatus: {
       type: String,
       required: true,
-      enum: ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"],
+      enum: ["PENDING", "PROCESSING", "SHIPPED", "IN_TRANSIT","OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"],
       default: "PENDING",
       index: true,
+    },
+    cancellationReason: {
+      type: String,
+      default: null,
+      trim: true,
     },
   },
   {

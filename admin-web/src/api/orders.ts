@@ -27,6 +27,8 @@ export type OrderStatus =
   | "PENDING"
   | "PROCESSING"
   | "SHIPPED"
+  | "IN_TRANSIT"
+  | "OUT_FOR_DELIVERY"
   | "DELIVERED"
   | "CANCELLED";
 
@@ -72,9 +74,11 @@ export const getAdminOrders = async (): Promise<OrdersResponse> => {
 export const updateOrderStatus = async (
   id: string,
   orderStatus: OrderStatus,
+  note?: string,
 ): Promise<Order> => {
   const response = await apiClient.patch(`/orders/${id}/status`, {
     orderStatus,
+    note,
   });
 
   return response.data.data;

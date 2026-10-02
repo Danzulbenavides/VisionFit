@@ -6,11 +6,15 @@ import {
   StyleSheet,
   Text,
   View,
+  Alert,
+  Linking,
+  Pressable,
 } from "react-native";
 
 import { getOrderById } from "../../api/orders";
+import { initiatePayment } from "../../api/epayments";
 
-const STEPS = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED"];
+const STEPS = ["PENDING", "PROCESSING", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"];
 
 export default function OrderDetailsScreen({ route }) {
   const { orderId } = route.params;
@@ -18,6 +22,7 @@ export default function OrderDetailsScreen({ route }) {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [payingNow, setPayingNow] = useState(false);
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -44,6 +49,39 @@ export default function OrderDetailsScreen({ route }) {
 
     loadOrder();
   }, [orderId]);
+
+      const handlePayNow = async () => {
+    try {
+      setPayingNow(true);
+
+      const result = await initiatePayment(orderId);
+
+      if (result.error) {
+        Alert.alert("Unable to Start Payment", result.error.message);
+        return;
+      }
+
+      const { checkoutUrl } = result.data;
+
+      const canOpen = await Linking.canOpenURL(checkoutUrl);
+
+      if (!canOpen) {
+        Alert.alert("Unable to Start Payment", "The checkout link could not be opened.");
+        return;
+      }
+
+      await Linking.openURL(checkoutUrl);
+    } catch (err) {
+      console.error("Initiate payment error:", err);
+
+      Alert.alert(
+        "Unable to Start Payment",
+        err.response?.data?.error?.message || "Please try again.",
+      );
+    } finally {
+      setPayingNow(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -133,6 +171,13 @@ export default function OrderDetailsScreen({ route }) {
           <Text style={styles.cancelledText}>
             This order has been cancelled.
           </Text>
+
+          {order.cancellationReason ? (
+            <Text style={styles.cancelledReason}>
+              Reason: {order.cancellationReason}
+            </Text>
+          ) : null}
+
         </View>
       )}
 
@@ -230,7 +275,22 @@ export default function OrderDetailsScreen({ route }) {
         <View style={styles.divider} />
 
         <SummaryRow label="Total" value={order.total} bold />
-      </View>
+      </View>               
+      {order.paymentMethod === "E_WALLET" &&
+      order.paymentStatus !== "PAID" &&
+      !cancelled ? (
+        <Pressable
+          style={[styles.payButton, payingNow && styles.payButtonDisabled]}
+          onPress={handlePayNow}
+          disabled={payingNow}
+        >
+          {payingNow ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.payButtonText}>Pay Now</Text>
+          )}
+        </Pressable>
+      ) : null}
     </ScrollView>
   );
 }
@@ -279,6 +339,24 @@ function formatDate(value) {
 }
 
 const styles = StyleSheet.create({
+  payButton: {
+    height: 55,
+    borderRadius: 14,
+    backgroundColor: "#111111",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+  },
+
+  payButtonDisabled: {
+    opacity: 0.6,
+  },
+
+  payButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "800",
+  },
   container: {
     padding: 20,
     paddingBottom: 40,
@@ -408,6 +486,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7F7F7",
     borderRadius: 14,
     padding: 16,
+  },
+
+    cancelledReason: {
+    fontSize: 12,
+    color: "#7A1F1F",
+    marginTop: 8,
+    fontStyle: "italic",
   },
 
   cancelledTitle: {

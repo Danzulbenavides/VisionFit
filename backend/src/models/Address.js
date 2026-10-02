@@ -41,6 +41,12 @@ const addressSchema = new mongoose.Schema(
       trim: true,
     },
 
+    barangay: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
     city: {
       type: String,
       required: true,

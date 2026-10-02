@@ -127,7 +127,9 @@ export default function OrdersScreen({ navigation }) {
       {orders.map((order) => (
         <Pressable
           key={order._id}
-          style={styles.card}
+          style={[styles.card,
+            order.orderStatus === "CANCELLED" && styles.cardCancelled,
+          ]}
           onPress={() =>
             navigation.navigate("OrderDetails", {
               orderId: order._id,
@@ -347,5 +349,10 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#FFFFFF",
     fontWeight: "700",
+  },
+    
+  cardCancelled: {
+    backgroundColor: "#FDF2F2",
+    borderColor: "#F3B4B4",
   },
 });
