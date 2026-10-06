@@ -14,17 +14,20 @@ import {
 } from "react-native";
 
 import { createAddress, getServiceArea } from "../../api/addresses";
+import { useAuth } from "../../context/AuthContext";
 
 export default function AddAddressScreen({ navigation }) {
-  const [firstName, setFirstName] = useState("");
+  const { user } = useAuth();
 
-  const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState(user?.firstName || "");
+
+  const [lastName, setLastName] = useState(user?.lastName || "");
 
   const [street, setStreet] = useState("");
 
   const [apartment, setApartment] = useState("");
 
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(user?.phone || "");
 
   const [isDefault, setIsDefault] = useState(false);
 
@@ -35,6 +38,20 @@ export default function AddAddressScreen({ navigation }) {
   const [serviceArea, setServiceArea] = useState(null);
 
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Pre-fill the name and phone the user already gave us at registration.
+  // Only fills fields the user has left empty, so it never overwrites edits.
+  useEffect(() => {
+    if (!user) return undefined;
+
+    setFirstName((current) => current || user.firstName || "");
+
+    setLastName((current) => current || user.lastName || "");
+
+    setPhone((current) => current || user.phone || "");
+
+    return undefined;
+  }, [user]);
 
   useEffect(() => {
     getServiceArea()

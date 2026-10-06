@@ -136,6 +136,14 @@ export default function LoginScreen({ navigation, route }) {
           )}
         </Pressable>
 
+        <Pressable
+          style={styles.forgotContainer}
+          onPress={() => navigation.navigate("ForgotPassword")}
+          hitSlop={8}
+        >
+          <Text style={styles.forgot}>Forgot password?</Text>
+        </Pressable>
+
         <Pressable onPress={() => navigation.navigate("Register")}>
           <Text style={styles.register}>
             Don't have an account?{" "}
@@ -222,7 +230,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 8,
-    marginBottom: 20,
+    marginBottom: 8,
   },
 
   buttonDisabled: {
@@ -233,6 +241,18 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
+  },
+
+  forgotContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+
+  forgot: {
+    fontSize: 14,
+    color: "#1D4ED8",
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 
   register: {

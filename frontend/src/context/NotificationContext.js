@@ -11,8 +11,8 @@ import React, {
 import { Platform } from "react-native";
 
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
+import { isRunningInExpoGo } from "expo";
 
 import {
   getNotifications,
@@ -24,24 +24,31 @@ import {
 import { navigateFromNotification } from "../navigation/navigationRef";
 import { useAuth } from "./AuthContext";
 
+// expo-notifications throws while it is being imported inside Expo Go on
+// Android (remote push was removed in SDK 53), so it is only loaded when the
+// app runs in a development build.
+const Notifications = isRunningInExpoGo() ? null : require("expo-notifications");
+
 const POLL_MS = 30000;
 
 // We draw our own in-app banner while the app is open,
 // so the system banner is turned off in the foreground.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: false,
-    shouldShowList: false,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+if (Notifications) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: false,
+      shouldShowList: false,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 const NotificationContext = createContext(null);
 
 const getPushToken = async () => {
-  // Push tokens only exist on real devices
-  if (!Device.isDevice) return null;
+  // Push tokens only exist on real devices in a development build
+  if (!Notifications || !Device.isDevice) return null;
 
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
@@ -143,7 +150,7 @@ export const NotificationProvider = ({ children }) => {
 
   // ---------- push received / tapped ----------
   useEffect(() => {
-    if (!isAuthenticated) return undefined;
+    if (!isAuthenticated || !Notifications) return undefined;
 
     const receivedSub = Notifications.addNotificationReceivedListener(() => {
       refresh();

@@ -4,13 +4,24 @@ import jwt from "jsonwebtoken";
 
 import User from "../models/User.js";
 import EmailVerification from "../models/EmailVerification.js";
-import { sendVerificationEmail } from "../services/email.service.js";
+import PasswordReset from "../models/PasswordReset.js";
+import LoginThrottle from "../models/LoginThrottle.js";
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} from "../services/email.service.js";
 import { requireFields } from "../utils/validation.js";
 import { recordAuditLog } from "./auditLog.controller.js";
 
 const VERIFICATION_TTL_MINUTES = 10;
 const VERIFICATION_MAX_ATTEMPTS = 5;
 const RESEND_COOLDOWN_SECONDS = 60;
+
+// Login lockout: after this many wrong attempts the account is suspended,
+// for 5 minutes on the 1st lockout, 15 minutes on the 2nd and 30 minutes
+// from the 3rd onwards. A successful login clears the counter and strikes.
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCK_MINUTES = [5, 15, 30];
 
 const generateVerificationCode = () =>
   crypto.randomInt(0, 1000000).toString().padStart(6, "0");
@@ -38,6 +49,108 @@ const issueVerificationCode = async (user) => {
     firstName: user.firstName,
     code,
   });
+};
+
+const issuePasswordResetCode = async (user) => {
+  const code = generateVerificationCode();
+  const now = new Date();
+
+  await PasswordReset.findOneAndUpdate(
+    { email: user.email },
+    {
+      email: user.email,
+      code,
+      expiresAt: new Date(
+        now.getTime() + VERIFICATION_TTL_MINUTES * 60 * 1000,
+      ),
+      attempts: 0,
+      sentAt: now,
+    },
+    { upsert: true, setDefaultsOnInsert: true },
+  );
+
+  await sendPasswordResetEmail({
+    to: user.email,
+    firstName: user.firstName,
+    code,
+  });
+};
+
+const isValidEmail = (email) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+const isStrongPassword = (password) =>
+  password.length >= 8 &&
+  /[A-Z]/.test(password) &&
+  /[a-z]/.test(password) &&
+  /\d/.test(password) &&
+  /[^A-Za-z0-9]/.test(password);
+
+const lockMinutesForStrike = (strike) =>
+  LOGIN_LOCK_MINUTES[
+    Math.min(Math.max(strike, 1), LOGIN_LOCK_MINUTES.length) - 1
+  ];
+
+const minutesText = (minutes) =>
+  `${minutes} minute${minutes === 1 ? "" : "s"}`;
+
+const respondLocked = (res, minutes, secondsLeft) => {
+  const retryAfterSeconds = Math.max(1, Math.ceil(secondsLeft));
+
+  const waitText =
+    retryAfterSeconds >= 60
+      ? `${Math.ceil(retryAfterSeconds / 60)} minute(s)`
+      : `${retryAfterSeconds} second(s)`;
+
+  return res.status(423).json({
+    data: null,
+    error: {
+      message: `Too many failed login attempts. Your account is temporarily locked for ${minutesText(
+        minutes,
+      )}. Try again in ${waitText}.`,
+      retryAfterSeconds,
+      lockedForMinutes: minutes,
+    },
+  });
+};
+
+// Counts one wrong attempt for an email address. Returns whether the account
+// just got locked and, if not, how many attempts are left.
+const registerFailedLogin = async (normalizedEmail) => {
+  const throttle = await LoginThrottle.findOneAndUpdate(
+    { email: normalizedEmail },
+    { $inc: { failedAttempts: 1 } },
+    { new: true, upsert: true },
+  );
+
+  if (throttle.failedAttempts < LOGIN_MAX_ATTEMPTS) {
+    return {
+      locked: false,
+      attemptsRemaining: LOGIN_MAX_ATTEMPTS - throttle.failedAttempts,
+    };
+  }
+
+  const strikes = (throttle.strikes || 0) + 1;
+  const minutes = lockMinutesForStrike(strikes);
+  const lockedUntil = new Date(Date.now() + minutes * 60 * 1000);
+
+  await LoginThrottle.updateOne(
+    { _id: throttle._id },
+    {
+      $set: {
+        strikes,
+        lockedUntil,
+        failedAttempts: 0,
+      },
+    },
+  );
+
+  return {
+    locked: true,
+    minutes,
+    lockedUntil,
+    strikes,
+  };
 };
 
 const issueToken = (user) =>
@@ -274,6 +387,21 @@ export const login = async (req, res) => {
     // Normalize email
     const normalizedEmail = email.trim().toLowerCase();
 
+    // Account lockout: refuse to even check credentials while suspended
+    const throttle = await LoginThrottle.findOne({
+      email: normalizedEmail,
+    });
+
+    if (throttle?.lockedUntil && throttle.lockedUntil.getTime() > Date.now()) {
+      const minutes = lockMinutesForStrike(throttle.strikes || 1);
+
+      return respondLocked(
+        res,
+        minutes,
+        (throttle.lockedUntil.getTime() - Date.now()) / 1000,
+      );
+    }
+
     // Find active user
     const user = await User.findOne({
       email: normalizedEmail,
@@ -282,10 +410,23 @@ export const login = async (req, res) => {
 
     // Use a generic error message
     if (!user) {
+      const failure = await registerFailedLogin(normalizedEmail);
+
+      if (failure.locked) {
+        return respondLocked(
+          res,
+          failure.minutes,
+          (failure.lockedUntil.getTime() - Date.now()) / 1000,
+        );
+      }
+
       return res.status(401).json({
         data: null,
         error: {
-          message: "Invalid email or password",
+          message: `Invalid email or password. ${failure.attemptsRemaining} attempt${
+            failure.attemptsRemaining === 1 ? "" : "s"
+          } remaining before your account is temporarily locked.`,
+          attemptsRemaining: failure.attemptsRemaining,
         },
       });
     }
@@ -294,10 +435,23 @@ export const login = async (req, res) => {
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
 
     if (!passwordMatches) {
+      const failure = await registerFailedLogin(normalizedEmail);
+
+      if (failure.locked) {
+        return respondLocked(
+          res,
+          failure.minutes,
+          (failure.lockedUntil.getTime() - Date.now()) / 1000,
+        );
+      }
+
       return res.status(401).json({
         data: null,
         error: {
-          message: "Invalid email or password",
+          message: `Invalid email or password. ${failure.attemptsRemaining} attempt${
+            failure.attemptsRemaining === 1 ? "" : "s"
+          } remaining before your account is temporarily locked.`,
+          attemptsRemaining: failure.attemptsRemaining,
         },
       });
     }
@@ -323,6 +477,10 @@ export const login = async (req, res) => {
       // Account created before email verification existed: mark as verified
       user.emailVerified = true;
     }
+
+    // Correct credentials and no blocking checks: clear failed attempts and
+    // the strike level so the next lockout starts at 5 minutes again
+    await LoginThrottle.deleteOne({ email: normalizedEmail });
 
     // Create JWT
     const token = issueToken(user);
@@ -580,6 +738,356 @@ export const resendVerification = async (req, res) => {
       data: null,
       error: {
         message: error.message || "Could not resend the verification code",
+      },
+    });
+  }
+};
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    requireFields(req.body, ["email"]);
+
+    if (typeof email !== "string") {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Invalid input types",
+        },
+      });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Invalid email address",
+        },
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+      isActive: true,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        data: null,
+        error: {
+          message: "No VisionFit account exists for this email.",
+        },
+      });
+    }
+
+    const record = await PasswordReset.findOne({
+      email: normalizedEmail,
+    });
+
+    if (record) {
+      const elapsedSeconds = (Date.now() - record.sentAt.getTime()) / 1000;
+
+      if (elapsedSeconds < RESEND_COOLDOWN_SECONDS) {
+        return res.status(429).json({
+          data: null,
+          error: {
+            message: `Please wait ${Math.ceil(
+              RESEND_COOLDOWN_SECONDS - elapsedSeconds,
+            )} seconds before requesting a new code.`,
+            retryAfterSeconds: Math.ceil(
+              RESEND_COOLDOWN_SECONDS - elapsedSeconds,
+            ),
+          },
+        });
+      }
+    }
+
+    try {
+      await issuePasswordResetCode(user);
+    } catch (emailError) {
+      console.error("Password reset email error:", emailError.message);
+
+      return res.status(502).json({
+        data: null,
+        error: {
+          message:
+            "We could not send the reset email. Please try again.",
+        },
+      });
+    }
+
+    return res.status(200).json({
+      data: {
+        message: `A 6-digit reset code was sent to ${normalizedEmail}.`,
+        email: normalizedEmail,
+      },
+      error: null,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(error.statusCode || 500).json({
+      data: null,
+      error: {
+        message: error.message || "Could not start the password reset",
+      },
+    });
+  }
+};
+
+export const verifyResetCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    requireFields(req.body, ["email", "code"]);
+
+    if (typeof email !== "string" || typeof code !== "string") {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Invalid input types",
+        },
+      });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Invalid email address",
+        },
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const submittedCode = code.trim();
+
+    if (!/^\d{6}$/.test(submittedCode)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Enter the 6-digit code from your email.",
+        },
+      });
+    }
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+      isActive: true,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        data: null,
+        error: {
+          message: "No VisionFit account exists for this email.",
+        },
+      });
+    }
+
+    const record = await PasswordReset.findOne({
+      email: normalizedEmail,
+    });
+
+    if (!record) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "No reset code found. Please request a new one.",
+        },
+      });
+    }
+
+    if (record.expiresAt.getTime() < Date.now()) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "This code has expired. Please request a new one.",
+        },
+      });
+    }
+
+    if (record.attempts >= VERIFICATION_MAX_ATTEMPTS) {
+      return res.status(429).json({
+        data: null,
+        error: {
+          message:
+            "Too many incorrect attempts. Please request a new code.",
+        },
+      });
+    }
+
+    if (record.code !== submittedCode) {
+      record.attempts += 1;
+      await record.save();
+
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Incorrect reset code.",
+          attemptsRemaining: Math.max(
+            0,
+            VERIFICATION_MAX_ATTEMPTS - record.attempts,
+          ),
+        },
+      });
+    }
+
+    return res.status(200).json({
+      data: {
+        verified: true,
+        email: normalizedEmail,
+      },
+      error: null,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(error.statusCode || 500).json({
+      data: null,
+      error: {
+        message: error.message || "Code verification failed",
+      },
+    });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, code, password } = req.body;
+
+    requireFields(req.body, ["email", "code", "password"]);
+
+    if (
+      typeof email !== "string" ||
+      typeof code !== "string" ||
+      typeof password !== "string"
+    ) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Invalid input types",
+        },
+      });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Invalid email address",
+        },
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const submittedCode = code.trim();
+
+    if (!/^\d{6}$/.test(submittedCode)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Enter the 6-digit code from your email.",
+        },
+      });
+    }
+
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message:
+            "Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.",
+        },
+      });
+    }
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+      isActive: true,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        data: null,
+        error: {
+          message: "No VisionFit account exists for this email.",
+        },
+      });
+    }
+
+    const record = await PasswordReset.findOne({
+      email: normalizedEmail,
+    });
+
+    if (!record) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "No reset code found. Please request a new one.",
+        },
+      });
+    }
+
+    if (record.expiresAt.getTime() < Date.now()) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "This code has expired. Please request a new one.",
+        },
+      });
+    }
+
+    if (record.attempts >= VERIFICATION_MAX_ATTEMPTS) {
+      return res.status(429).json({
+        data: null,
+        error: {
+          message:
+            "Too many incorrect attempts. Please request a new code.",
+        },
+      });
+    }
+
+    if (record.code !== submittedCode) {
+      record.attempts += 1;
+      await record.save();
+
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Incorrect reset code.",
+          attemptsRemaining: Math.max(
+            0,
+            VERIFICATION_MAX_ATTEMPTS - record.attempts,
+          ),
+        },
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    user.passwordHash = passwordHash;
+    await user.save();
+
+    await PasswordReset.deleteOne({ _id: record._id });
+
+    return res.status(200).json({
+      data: {
+        reset: true,
+        email: normalizedEmail,
+      },
+      error: null,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(error.statusCode || 500).json({
+      data: null,
+      error: {
+        message: error.message || "Password reset failed",
       },
     });
   }

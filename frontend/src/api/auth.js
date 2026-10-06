@@ -31,3 +31,30 @@ export const resendVerification = async (email) => {
 
   return response.data;
 };
+
+export const forgotPassword = async (email) => {
+  const response = await apiClient.post("/auth/forgot-password", {
+    email,
+  });
+
+  return response.data;
+};
+
+export const verifyResetCode = async (email, code) => {
+  const response = await apiClient.post("/auth/verify-reset-code", {
+    email,
+    code,
+  });
+
+  return response.data;
+};
+
+export const resetPassword = async (email, code, password) => {
+  const response = await apiClient.post("/auth/reset-password", {
+    email,
+    code,
+    password,
+  });
+
+  return response.data;
+};
