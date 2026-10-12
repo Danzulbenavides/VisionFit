@@ -45,7 +45,6 @@ import NotificationsScreen from "../screens/notifications/NotificationsScreen";
 import NotificationBanner from "../components/NotificationBanner";
 
 import { useAuth } from "../context/AuthContext";
-import { useNotifications } from "../context/NotificationContext";
 import { navigationRef } from "./navigationRef";
 
 const Stack = createNativeStackNavigator();
@@ -113,8 +112,6 @@ const tabIcon =
   ({ color, size }) => <Ionicons name={name} size={size} color={color} />;
 
 function MainTabs() {
-  const { unreadCount } = useNotifications();
-
   return (
     <Tab.Navigator
       screenOptions={{
@@ -171,7 +168,6 @@ function MainTabs() {
         options={{
           tabBarLabel: "Profile",
           tabBarIcon: tabIcon("person-outline"),
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         }}
       />
     </Tab.Navigator>

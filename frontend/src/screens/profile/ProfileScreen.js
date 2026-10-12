@@ -5,6 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from "../../context/AuthContext";
+import NotificationBell from "../../components/NotificationBell";
 
 const ACTIONS = [
   ['card-outline', 'Payment'],
@@ -72,9 +73,12 @@ export default function ProfileScreen({ navigation }) {
       <ScrollView contentContainerStyle={s.content}>
         <View style={s.header}>
           <Text style={s.title}>Profile</Text>
-          <TouchableOpacity onPress={() => Alert.alert('Settings', 'Settings coming soon')}>
-            <Ionicons name="settings-outline" size={21} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <NotificationBell />
+            <TouchableOpacity onPress={() => Alert.alert('Settings', 'Settings coming soon')}>
+              <Ionicons name="settings-outline" size={21} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={s.user}>

@@ -2,6 +2,8 @@ import React from "react";
 
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import NotificationBell from "../../components/NotificationBell";
+
 export default function HomeScreen({ navigation }) {
   return (
     <ScrollView
@@ -15,12 +17,16 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.logo}>VisionFit</Text>
         </View>
 
-        <Pressable
-          style={styles.iconButton}
-          onPress={() => navigation.navigate("Profile")}
-        >
-          <Text style={styles.iconText}>👤</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <NotificationBell />
+
+          <Pressable
+            style={styles.iconButton}
+            onPress={() => navigation.navigate("Profile")}
+          >
+            <Text style={styles.iconText}>👤</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.hero}>
@@ -134,6 +140,11 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   iconButton: {
     width: 42,
     height: 42,
