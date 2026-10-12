@@ -66,6 +66,12 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Expo push tokens of the devices logged in to this account
+    pushTokens: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,
