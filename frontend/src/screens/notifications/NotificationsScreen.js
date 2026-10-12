@@ -9,6 +9,8 @@ import {
   View,
 } from "react-native";
 
+import { Ionicons } from "@expo/vector-icons";
+
 import { useNotifications } from "../../context/NotificationContext";
 
 const timeAgo = (value) => {
@@ -21,6 +23,14 @@ const timeAgo = (value) => {
   if (hours < 24) return `${hours}h ago`;
 
   return `${Math.floor(hours / 24)}d ago`;
+};
+
+const ICONS = {
+  LOW_STOCK: { name: "warning", color: "#F29900", bg: "#FFF4DE" },
+  NEW_ORDER: { name: "receipt", color: "#1A73E8", bg: "#E8F0FE" },
+  ORDER_PLACED: { name: "checkmark-circle", color: "#1E8E3E", bg: "#E6F4EA" },
+  ORDER_STATUS: { name: "cube", color: "#1A73E8", bg: "#E8F0FE" },
+  SYSTEM: { name: "information-circle", color: "#5F6368", bg: "#F1F3F4" },
 };
 
 export default function NotificationsScreen({ navigation }) {
@@ -40,6 +50,8 @@ export default function NotificationsScreen({ navigation }) {
 
     if (item.data?.orderId) {
       navigation.navigate("OrderDetails", { orderId: item.data.orderId });
+    } else if (item.data?.productId) {
+      navigation.navigate("ProductDetails", { productId: item.data.productId });
     }
   };
 
@@ -74,13 +86,26 @@ export default function NotificationsScreen({ navigation }) {
             style={[styles.item, !item.isRead && styles.itemUnread]}
             onPress={() => handlePress(item)}
           >
-            {!item.isRead ? <View style={styles.dot} /> : null}
+            <View
+              style={[
+                styles.iconWrap,
+                { backgroundColor: (ICONS[item.type] || ICONS.SYSTEM).bg },
+              ]}
+            >
+              <Ionicons
+                name={(ICONS[item.type] || ICONS.SYSTEM).name}
+                size={20}
+                color={(ICONS[item.type] || ICONS.SYSTEM).color}
+              />
+            </View>
 
             <View style={styles.itemBody}>
               <Text style={styles.itemTitle}>{item.title}</Text>
               <Text style={styles.itemMessage}>{item.message}</Text>
               <Text style={styles.itemTime}>{timeAgo(item.createdAt)}</Text>
             </View>
+
+            {!item.isRead ? <View style={styles.dot} /> : null}
           </Pressable>
         )}
       />
@@ -116,7 +141,15 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: "#1A73E8",
     marginTop: 5,
-    marginRight: 10,
+    marginLeft: 10,
+  },
+  iconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
   itemBody: { flex: 1 },
   itemTitle: { fontSize: 15, fontWeight: "800", marginBottom: 3 },
