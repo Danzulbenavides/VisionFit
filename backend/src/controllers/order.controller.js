@@ -9,6 +9,8 @@ import Address from "../models/Address.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
+import { notifyUser } from "../services/notification.service.js";
+
 const SHIPPING_FEE = 60;
 
 const generateOrderNumber = () => {
@@ -472,6 +474,14 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     } finally {
       await session.endSession();
     }
+    await notifyUser(order.userId, {
+      type: "ORDER_STATUS",
+      title: "Order Cancelled",
+      message: note
+        ? `Your order ${order.orderNumber} was cancelled. Reason: ${note}`
+        : `Your order ${order.orderNumber} was cancelled.`,
+      data: { orderId: order._id.toString() },
+    });
   } else {
     order.orderStatus = orderStatus;
     await order.save();

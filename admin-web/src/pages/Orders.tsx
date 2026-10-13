@@ -110,7 +110,7 @@ export default function Orders() {
 
     if (newStatus === "CANCELLED") {
       const reason = window.prompt(
-        "Cancel this order? The customer will be emailed and the stock will be restored.\n\nReason (optional, shown to the customer):",
+        "Cancel this order? The customer will be notified and the stock will be restored.\n\nReason (Shown to the customer):",
       );
 
       // Pressing "Cancel" on the prompt keeps the order as it is.

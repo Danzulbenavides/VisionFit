@@ -11,8 +11,11 @@ import React, {
 import { Platform } from "react-native";
 
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
+
+const isExpoGo = Constants.executionEnvironment === "storeClient";
+
+const Notifications = isExpoGo ? null : require("expo-notifications");
 
 import {
   getNotifications,
@@ -24,10 +27,12 @@ import {
 import { navigateFromNotification } from "../navigation/navigationRef";
 import { useAuth } from "./AuthContext";
 
+
 const POLL_MS = 30000;
 
 // We draw our own in-app banner while the app is open,
 // so the system banner is turned off in the foreground.
+if (!isExpoGo) {
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: false,
@@ -36,12 +41,18 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+}
 
 const NotificationContext = createContext(null);
 
 const getPushToken = async () => {
   // Push tokens only exist on real devices
   if (!Device.isDevice) return null;
+
+  if (isExpoGo) {
+    console.log("Push token registration skipped (not supported in Expo Go).");
+    return null;
+  }
 
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
@@ -143,7 +154,7 @@ export const NotificationProvider = ({ children }) => {
 
   // ---------- push received / tapped ----------
   useEffect(() => {
-    if (!isAuthenticated) return undefined;
+    if (!isAuthenticated || isExpoGo) return undefined;
 
     const receivedSub = Notifications.addNotificationReceivedListener(() => {
       refresh();
