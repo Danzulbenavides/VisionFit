@@ -8,8 +8,12 @@ import Address from "../models/Address.js";
 
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import {
+  notifyUser,
+  notifyRoles,
+  LOW_STOCK_THRESHOLD,
+} from "../services/notification.service.js";
 
-import { notifyUser } from "../services/notification.service.js";
 
 const SHIPPING_FEE = 60;
 
@@ -48,6 +52,9 @@ export const createOrder = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
 
   let createdOrder = null;
+
+  // Products that dropped to low stock (notified after the transaction commits)
+  const lowStockProducts = [];
 
   try {
     // -----------------------------------------
@@ -321,6 +328,14 @@ export const createOrder = asyncHandler(async (req, res) => {
             `Stock changed before checkout completed for product ${cartItem.productId}`,
           );
         }
+
+        if (updatedProduct.stock <= LOW_STOCK_THRESHOLD) {
+          lowStockProducts.push({
+            id: updatedProduct._id,
+            name: updatedProduct.name,
+            stock: updatedProduct.stock,
+          });
+        }
       }
 
       // -----------------------------------------
@@ -337,6 +352,30 @@ export const createOrder = asyncHandler(async (req, res) => {
     // -----------------------------------------
     // 12. Transaction committed
     // -----------------------------------------
+
+    // 13. Notifications (never break the checkout if these fail)
+    await notifyUser(createdOrder.userId, {
+      type: "ORDER_PLACED",
+      title: "Order placed",
+      message: `Your order ${createdOrder.orderNumber} has been placed.`,
+      data: { orderId: createdOrder._id },
+    });
+
+    await notifyRoles(["ADMIN", "STAFF"], {
+      type: "NEW_ORDER",
+      title: "New order",
+      message: `New order ${createdOrder.orderNumber} received.`,
+      data: { orderId: createdOrder._id },
+    });
+
+    for (const product of lowStockProducts) {
+      await notifyRoles(["ADMIN", "STAFF"], {
+        type: "LOW_STOCK",
+        title: "Low stock",
+        message: `${product.name} is low on stock (${product.stock} left).`,
+        data: { productId: product.id },
+      });
+    }
 
     return res.status(201).json({
       data: createdOrder,
@@ -485,6 +524,15 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   } else {
     order.orderStatus = orderStatus;
     await order.save();
+  }
+
+  if (previousStatus !== orderStatus) {
+    await notifyUser(order.userId, {
+      type: "ORDER_STATUS",
+      title: "Order update",
+      message: `Your order ${order.orderNumber} is now ${orderStatus}.`,
+      data: { orderId: order._id },
+    });
   }
 
   return res.status(200).json({

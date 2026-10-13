@@ -13,6 +13,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
 import VerifyEmailScreen from "../screens/auth/VerifyEmailScreen";
+import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
 
 import HomeScreen from "../screens/home/HomeScreen";
 import ProductListScreen from "../screens/products/ProductListScreen";
@@ -44,7 +45,6 @@ import NotificationsScreen from "../screens/notifications/NotificationsScreen";
 import NotificationBanner from "../components/NotificationBanner";
 
 import { useAuth } from "../context/AuthContext";
-import { useNotifications } from "../context/NotificationContext";
 import { navigationRef } from "./navigationRef";
 
 const Stack = createNativeStackNavigator();
@@ -77,6 +77,14 @@ function AuthStack() {
           headerShown: false,
         }}
       />
+
+      <Stack.Screen
+        name="ForgotPassword"
+        component={ForgotPasswordScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack.Navigator>
   );
 }
@@ -104,8 +112,6 @@ const tabIcon =
   ({ color, size }) => <Ionicons name={name} size={size} color={color} />;
 
 function MainTabs() {
-  const { unreadCount } = useNotifications();
-
   return (
     <Tab.Navigator
       screenOptions={{
@@ -162,7 +168,6 @@ function MainTabs() {
         options={{
           tabBarLabel: "Profile",
           tabBarIcon: tabIcon("person-outline"),
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         }}
       />
     </Tab.Navigator>

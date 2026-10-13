@@ -32,22 +32,22 @@ const POLL_MS = 30000;
 
 // We draw our own in-app banner while the app is open,
 // so the system banner is turned off in the foreground.
-if (!isExpoGo) {
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: false,
-    shouldShowList: false,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+if (Notifications) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: false,
+      shouldShowList: false,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
 }
 
 const NotificationContext = createContext(null);
 
 const getPushToken = async () => {
-  // Push tokens only exist on real devices
-  if (!Device.isDevice) return null;
+  // Push tokens only exist on real devices in a development build
+  if (!Notifications || !Device.isDevice) return null;
 
   if (isExpoGo) {
     console.log("Push token registration skipped (not supported in Expo Go).");
@@ -154,7 +154,7 @@ export const NotificationProvider = ({ children }) => {
 
   // ---------- push received / tapped ----------
   useEffect(() => {
-    if (!isAuthenticated || isExpoGo) return undefined;
+    if (!isAuthenticated || !Notifications) return undefined;
 
     const receivedSub = Notifications.addNotificationReceivedListener(() => {
       refresh();
