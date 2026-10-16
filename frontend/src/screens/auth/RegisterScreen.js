@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Linking } from "@expo/vector-icons";
 
 import {
   ActivityIndicator,
@@ -246,6 +246,9 @@ export default function RegisterScreen({ navigation }) {
   // Becomes true after the first "Create Account" tap
   const [submitted, setSubmitted] = useState(false);
 
+  // Terms and conditions acceptance
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
   const filterName = (value) => value.replace(/[^A-Za-z\s-]/g, "");
 
   const filterPhone = (value) => value.replace(/[^0-9]/g, "");
@@ -280,6 +283,12 @@ export default function RegisterScreen({ navigation }) {
     ];
 
     if (allStates.some((status) => status.state !== "valid")) {
+      return;
+    }
+
+    // Check if terms and conditions are accepted
+    if (!termsAccepted) {
+      Alert.alert("Please accept the Terms and Conditions to continue");
       return;
     }
 
@@ -471,10 +480,36 @@ export default function RegisterScreen({ navigation }) {
         </View>
         <Indicator status={confirmState} submitted={submitted} />
 
+        {/* Terms and Conditions */}
+        <View style={styles.termsContainer}>
+          <Pressable
+            style={styles.termsCheckbox}
+            onPress={() => setTermsAccepted(!termsAccepted)}
+          >
+            <Ionicons
+              name={termsAccepted ? "checkmark-circle" : "circle-outline"}
+              size={20}
+              color={termsAccepted ? "#111111" : "#D0D0D0"}
+            />
+          </Pressable>
+          <View style={styles.termsTextContainer}>
+            <Text style={styles.termsText}>
+              I agree to the
+              <Text style={styles.termsLinkText} onPress={() => Linking.openURL('https://visionfit.com/terms')}>
+                Terms and Conditions
+              </Text>
+              and
+              <Text style={styles.termsLinkText} onPress={() => Linking.openURL('https://visionfit.com/privacy')}>
+                Privacy Policy
+              </Text>
+            </Text>
+          </View>
+        </View>
+
         <Pressable
-          style={[styles.button, loading && styles.disabledButton]}
+          style={[styles.button, loading && styles.disabledButton, !termsAccepted && styles.disabledButton]}
           onPress={handleRegister}
-          disabled={loading}
+          disabled={loading || !termsAccepted}
         >
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
@@ -614,5 +649,29 @@ const styles = StyleSheet.create({
     color: "#1D4ED8",
     fontWeight: "600",
     textDecorationLine: "underline",
+  },
+  termsContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 20,
+    marginBottom: 24,
+  },
+  termsCheckbox: {
+    padding: 10,
+  },
+  termsTextContainer: {
+    flex: 1,
+  },
+  termsText: {
+    fontSize: 12,
+    color: "#555555",
+    lineHeight: 16,
+  },
+  termsLinkText: {
+    color: "#1D4ED8",
+    fontWeight: "600",
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });

@@ -117,11 +117,20 @@ export default function ProfileScreen({ navigation }) {
             <TouchableOpacity
               style={s.action}
               key={label}
-              onPress={() =>
-                label === 'Addresses'
-                  ? navigation.navigate('AddAddress')
-                  : Alert.alert(label, `${label} feature coming soon`)
-              }
+              onPress={() => {
+                if (label === 'Addresses') {
+                  navigation.navigate('AddAddress');
+                } else if (label === 'Terms & policies') {
+                  // Show Terms and Conditions modal
+                  Alert.alert(
+                    'Terms and Conditions',
+                    'Last updated: October 1, 2026\n\n1. Acceptance of Terms\nBy accessing or using the VisionFit application, you agree to be bound by these Terms and Conditions.\n\n2. Use License\nPermission is granted to temporarily download and use the VisionFit app for personal, non-commercial transitory viewing only.\n\n3. Disclaimer\nThe materials on VisionFit\'s app are provided on an \"as is\" basis. VisionFit makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties.\n\n4. Limitations\nIn no event shall VisionFit or its suppliers be liable for any damages arising out of the use or inability to use the VisionFit app.\n\n5. Governing Law\nThese terms and conditions are governed by and construed in accordance with the laws of the Philippines, without regard to its conflict of law provisions.',
+                    [{ text: 'OK', style: 'cancel' }]
+                  );
+                } else {
+                  Alert.alert(label, `${label} feature coming soon`);
+                }
+              }}
             >
               <View style={s.actionIcon}>
                 <Ionicons name={icon} size={21} />
