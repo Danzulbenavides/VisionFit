@@ -1,5 +1,9 @@
 import dotenv from "dotenv";
-dotenv.config();
+// Load .env.local if it exists, otherwise fallback to .env
+const result = dotenv.config({ path: '.env.local' });
+if (result.error) {
+  dotenv.config(); // fallback to .env
+}
 
 import app from "./src/app.js";
 import connectDB from "./src/config/db.js";

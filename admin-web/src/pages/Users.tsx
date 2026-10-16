@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { getAdminUsers, type User } from "../api/users";
+import {
+  getAdminUsers,
+  suspendUser, // SUSPEND
+  reactivateUser, // SUSPEND
+  type User,
+} from "../api/users";
 
 const formatDate = (value?: string | null) => {
   if (!value) {
@@ -16,6 +21,13 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState("");
+
+  // SUSPEND START
+  const [actionUserId, setActionUserId] = useState<string | null>(null);
+
+  const storedAdmin = sessionStorage.getItem("adminUser");
+  const currentAdminId = storedAdmin ? JSON.parse(storedAdmin)?.id : null;
+  // SUSPEND END
 
   const loadUsers = useCallback(async () => {
     try {
@@ -47,6 +59,48 @@ export default function Users() {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  // SUSPEND START
+  const handleToggleSuspend = async (user: User) => {
+    const willSuspend = user.isActive;
+
+    const confirmed = window.confirm(
+      willSuspend
+        ? `Suspend ${user.firstName} ${user.lastName}? They will be logged out and cannot log in until reactivated.`
+        : `Reactivate ${user.firstName} ${user.lastName}?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setActionUserId(user._id);
+      setError("");
+
+      const result = willSuspend
+        ? await suspendUser(user._id)
+        : await reactivateUser(user._id);
+
+      if (result.error) {
+        setError(result.error.message);
+        return;
+      }
+
+      await loadUsers();
+    } catch (err: any) {
+      console.error("Suspend/reactivate user error:", err);
+
+      setError(
+        err?.response?.data?.error?.message ||
+          err?.message ||
+          "Unable to update user status.",
+      );
+    } finally {
+      setActionUserId(null);
+    }
+  };
+  // SUSPEND END
 
   const totalUsers = users.length;
 
@@ -153,6 +207,7 @@ export default function Users() {
                 <th>Status</th>
                 <th>Last Login</th>
                 <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
 
@@ -197,13 +252,35 @@ export default function Users() {
                           : "status-badge status-inactive"
                       }
                     >
-                      {user.isActive ? "Active" : "Inactive"}
+                      {user.isActive ? "Active" : "Suspended"}
                     </span>
                   </td>
 
                   <td>{formatDate(user.lastLoginAt)}</td>
 
                   <td>{formatDate(user.createdAt)}</td>
+
+                  <td>
+                    {user.role === "ADMIN" || user._id === currentAdminId ? (
+                      "—"
+                    ) : (
+                      <button
+                        className={
+                          user.isActive
+                            ? "danger-admin-button"
+                            : "secondary-admin-button"
+                        }
+                        onClick={() => handleToggleSuspend(user)}
+                        disabled={actionUserId === user._id}
+                      >
+                        {actionUserId === user._id
+                          ? "Saving..."
+                          : user.isActive
+                            ? "Suspend"
+                            : "Reactivate"}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -220,7 +297,7 @@ export default function Users() {
           </span>
 
           <span>
-            Inactive: <strong>{inactiveCount}</strong>
+            Suspended: <strong>{inactiveCount}</strong>
           </span>
 
           <span>

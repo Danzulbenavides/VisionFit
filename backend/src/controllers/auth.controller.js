@@ -404,8 +404,7 @@ export const login = async (req, res) => {
 
     // Find active user
     const user = await User.findOne({
-      email: normalizedEmail,
-      isActive: true,
+      email: normalizedEmail, // SUSPEND: removed isActive: true, checked below instead
     });
 
     // Use a generic error message
@@ -455,6 +454,20 @@ export const login = async (req, res) => {
         },
       });
     }
+
+    // SUSPEND START
+    // Block suspended accounts (only after the password is confirmed correct,
+    // so the suspension status is not leaked to someone guessing passwords)
+    if (!user.isActive) {
+      return res.status(403).json({
+        data: null,
+        error: {
+          message: "Your account has been suspended. Please contact support.",
+        },
+      });
+    }
+
+    // SUSPEND END
 
     // Block accounts that still need their email verified
     if (!user.emailVerified) {

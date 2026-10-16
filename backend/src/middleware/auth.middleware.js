@@ -1,6 +1,8 @@
 import jwt from "jsonwebtoken";
 
-const authenticate = (req, res, next) => {
+import User from "../models/User.js"; // SUSPEND
+
+const authenticate = async (req, res, next) => { // SUSPEND: added async
   try {
     const authHeader = req.headers.authorization;
 
@@ -29,6 +31,21 @@ const authenticate = (req, res, next) => {
 
     // Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // SUSPEND START
+    // Reject suspended or deleted accounts even if their token is still valid
+    const account = await User.findById(decoded.userId).select("isActive");
+
+    if (!account || !account.isActive) {
+      return res.status(403).json({
+        data: null,
+        error: {
+          message: "Your account has been suspended. Please contact support.",
+        },
+      });
+    }
+
+    // SUSPEND END
 
     // Attach authenticated user to request
     req.user = {

@@ -13,6 +13,8 @@ node_modules/
 **/.env.*
 !.env.example
 !**/.env.example
+.env.local
+**/.env.local
 
 # =========================
 # PYTHON
@@ -75,3 +77,4 @@ frontend.zip
 backend/backups/
 backend/uploads/
 backend/test-images/
+db-backups/
