@@ -104,6 +104,12 @@ export interface ProductFormValues {
   imageUrl: string;
 }
 
+// Highest price a product can be listed at (₱)
+export const MAX_PRICE = 50000;
+
+// Longest product name allowed (characters)
+export const MAX_NAME_LENGTH = 35;
+
 export type FormErrors<T> = Partial<Record<keyof T, string>>;
 
 const oneOf = (value: string, options: { value: string }[]) =>
@@ -117,9 +123,9 @@ export const validateProductForm = (
   const name = form.name.trim();
   if (!name) errors.name = "Product name is required.";
   else if (name.length < 2) errors.name = "Product name must be at least 2 characters.";
-  else if (name.length > 150) errors.name = "Product name must be at most 150 characters.";
+  else if (name.length > MAX_NAME_LENGTH) errors.name = `Product name must be at most ${MAX_NAME_LENGTH} characters.`;
 
-  if (form.brand.trim().length > 100) errors.brand = "Brand must be at most 100 characters.";
+  if (!form.brand.trim()) errors.brand = "Select a brand.";
 
   const description = form.description.trim();
   if (!description) errors.description = "Description is required.";
@@ -128,12 +134,12 @@ export const validateProductForm = (
   const price = Number(form.price);
   if (form.price.trim() === "") errors.price = "Price is required.";
   else if (!Number.isFinite(price) || price <= 0) errors.price = "Price must be greater than 0.";
-  else if (price > 1000000) errors.price = "Price is too large.";
+  else if (price > MAX_PRICE) errors.price = `Price cannot be more than ₱${MAX_PRICE.toLocaleString()}.`;
 
   const stock = Number(form.stock);
   if (form.stock.trim() === "") errors.stock = "Stock is required.";
   else if (!Number.isInteger(stock) || stock < 0) errors.stock = "Stock must be a whole number, 0 or higher.";
-  else if (stock > 100000) errors.stock = "Stock is too large.";
+  else if (stock > 1000) errors.stock = "Stock is too large.";
 
   if (!oneOf(form.category, CATEGORY_OPTIONS)) errors.category = "Select a category.";
   if (!oneOf(form.frameShape, FRAME_SHAPE_OPTIONS)) errors.frameShape = "Select a frame shape.";

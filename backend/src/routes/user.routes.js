@@ -3,7 +3,11 @@ import { Router } from "express";
 import authenticate from "../middleware/auth.middleware.js";
 import requireRole from "../middleware/role.middleware.js";
 
-import { getCurrentUser, getAllUsers } from "../controllers/user.controller.js";
+import {
+  getCurrentUser,
+  getAllUsers,
+  setUserStatus,
+} from "../controllers/user.controller.js";
 
 const router = Router();
 
@@ -18,5 +22,12 @@ router.get("/me", authenticate, getCurrentUser);
 // =========================================
 
 router.get("/admin", authenticate, requireRole("ADMIN"), getAllUsers);
+
+router.patch(
+  "/admin/:id/status",
+  authenticate,
+  requireRole("ADMIN"),
+  setUserStatus,
+);
 
 export default router;

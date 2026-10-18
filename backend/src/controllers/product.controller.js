@@ -344,7 +344,10 @@ export const createProduct = async (req, res) => {
     return res.status(400).json({
       data: null,
       error: {
-        message: "Failed to create product",
+        message:
+    error.name === "ValidationError"
+    ? error.message
+    : "Failed to create product",
       },
     });
   }

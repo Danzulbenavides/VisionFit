@@ -402,10 +402,8 @@ export const login = async (req, res) => {
       );
     }
 
-    // Find active user
     const user = await User.findOne({
       email: normalizedEmail,
-      isActive: true,
     });
 
     // Use a generic error message
@@ -452,6 +450,18 @@ export const login = async (req, res) => {
             failure.attemptsRemaining === 1 ? "" : "s"
           } remaining before your account is temporarily locked.`,
           attemptsRemaining: failure.attemptsRemaining,
+        },
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({
+        data: null,
+        error: {
+          message: user.suspensionReason
+            ? `Your account has been suspended (reason: ${user.suspensionReason}).`
+            : "Your account has been suspended.",
+          suspended: true,
         },
       });
     }

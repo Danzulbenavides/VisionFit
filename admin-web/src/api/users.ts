@@ -1,6 +1,6 @@
 import apiClient from "./client";
 
-export type UserRole = "CUSTOMER" | "ADMIN";
+export type UserRole = "CUSTOMER" | "STAFF" | "ADMIN";
 
 export interface User {
   _id: string;
@@ -27,4 +27,17 @@ export const getAdminUsers = async (): Promise<UsersResponse> => {
   const response = await apiClient.get("/users/admin");
 
   return response.data;
+};
+
+export const updateUserStatus = async (
+  id: string,
+  isActive: boolean,
+  reason?: string,
+): Promise<User> => {
+  const response = await apiClient.patch(`/users/admin/${id}/status`, {
+    isActive,
+    reason,
+  });
+
+  return response.data.data;
 };

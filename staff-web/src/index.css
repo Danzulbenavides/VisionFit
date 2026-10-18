@@ -1143,3 +1143,15 @@ input {
   background: #fff4e5;
   border-left: 4px solid #f29900;
 }
+
+.required-mark {
+  margin-left: 3px;
+  color: #9b1c1c;
+  font-weight: 700;
+}
+
+.form-required-note {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #777777;
+}
