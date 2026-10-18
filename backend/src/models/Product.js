@@ -88,7 +88,7 @@ const productSchema = new Schema(
       type: String,
       required: true,
       trim: true,
-      maxlength: 150,
+      maxlength: [35, "Product name must be at most 35 characters."],
     },
 
     brand: {
@@ -109,6 +109,7 @@ const productSchema = new Schema(
       type: Number,
       required: true,
       min: 0,
+      max: [50000, "Price cannot be more than ₱50,000."],
     },
 
     // =====================================

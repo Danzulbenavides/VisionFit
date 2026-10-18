@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { getAdminUsers, type User } from "../api/users";
+import { getAdminUsers, updateUserStatus, type User } from "../api/users";
 
 const formatDate = (value?: string | null) => {
   if (!value) {
@@ -16,6 +16,18 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState("");
+
+  
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // The logged-in admin can't suspend themselves, so their row has no button.
+  const currentAdminId = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("adminUser") || "null")?.id;
+    } catch {
+      return null;
+    }
+  })();
 
   const loadUsers = useCallback(async () => {
     try {
@@ -48,6 +60,52 @@ export default function Users() {
     loadUsers();
   }, [loadUsers]);
 
+    const handleToggleSuspension = async (user: User) => {
+    const suspending = user.isActive;
+    const name = `${user.firstName} ${user.lastName}`.trim() || user.email;
+
+    let reason: string | undefined;
+
+    if (suspending) {
+      const input = window.prompt(
+        `Suspend ${name}?\n\nThey will lose access immediately and cannot log in until you reactivate them.\n\nReason (optional, show to cusomers when they try to login):`,
+      );
+
+      // Pressing "Cancel" on the prompt leaves the account as it is.
+      if (input === null) {
+        return;
+      }
+
+      reason = input.trim() || undefined;
+    } else if (!window.confirm(`Reactivate ${name}? They will be able to log in again.`)) {
+      return;
+    }
+
+    try {
+      setUpdatingId(user._id);
+      setError("");
+
+      const updatedUser = await updateUserStatus(user._id, !user.isActive, reason);
+
+      setUsers((currentUsers) =>
+        currentUsers.map((currentUser) =>
+          currentUser._id === updatedUser._id ? updatedUser : currentUser,
+        ),
+      );
+    } catch (err: any) {
+      console.error("Update user status error:", err);
+
+      setError(
+        err?.response?.data?.error?.message ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Unable to update this account.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const totalUsers = users.length;
 
   const customerCount = users.filter((user) => user.role === "CUSTOMER").length;
@@ -71,7 +129,7 @@ export default function Users() {
           <h1>Users</h1>
 
           <p className="page-description">
-            View VisionFit customer and administrator accounts.
+            View VisionFit Customer accounts.
           </p>
         </div>
 
@@ -153,6 +211,7 @@ export default function Users() {
                 <th>Status</th>
                 <th>Last Login</th>
                 <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
 
@@ -197,13 +256,35 @@ export default function Users() {
                           : "status-badge status-inactive"
                       }
                     >
-                      {user.isActive ? "Active" : "Inactive"}
+                      {user.isActive ? "Active" : "Suspended"}
                     </span>
                   </td>
 
                   <td>{formatDate(user.lastLoginAt)}</td>
 
                   <td>{formatDate(user.createdAt)}</td>
+                  
+                  <td>
+                    {user.role === "ADMIN" || user._id === currentAdminId ? (
+                      "—"
+                    ) : (
+                      <button
+                        className={
+                          user.isActive
+                            ? "danger-admin-button"
+                            : "secondary-admin-button"
+                        }
+                        onClick={() => handleToggleSuspension(user)}
+                        disabled={updatingId === user._id}
+                      >
+                        {updatingId === user._id
+                          ? "Saving..."
+                          : user.isActive
+                            ? "Suspend"
+                            : "Reactivate"}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -220,7 +301,7 @@ export default function Users() {
           </span>
 
           <span>
-            Inactive: <strong>{inactiveCount}</strong>
+            Suspended: <strong>{inactiveCount}</strong>
           </span>
 
           <span>

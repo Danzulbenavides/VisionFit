@@ -1,6 +1,8 @@
 import type { ChangeEvent } from "react";
 
 import {
+  MAX_PRICE,
+  MAX_NAME_LENGTH,
   BRAND_OPTIONS,
   CATEGORY_OPTIONS,
   FRAME_SHAPE_OPTIONS,
@@ -23,12 +25,17 @@ interface Props {
   ) => void;
 }
 
+function RequiredMark() {
+  return <span className="required-mark">*</span>;
+}
+
 function Select({
   label,
   name,
   value,
   options,
   placeholder,
+  required,
   error,
   onChange,
 }: {
@@ -37,6 +44,7 @@ function Select({
   value: string;
   options: Option[];
   placeholder: string;
+  required?: boolean;
   error?: string;
   onChange: Props["onChange"];
 }) {
@@ -69,15 +77,21 @@ export default function ProductFormFields({ form, errors, onChange }: Props) {
 
   return (
     <>
+    <p className="form-required-note">
+  <span className="required-mark">*</span> Required field
+</p>
       <div className={errors.name ? "form-group form-group-error" : "form-group"}>
-        <label>Product Name</label>
+        <label>
+          Product Name
+          <RequiredMark />
+        </label>
 
         <input
           type="text"
           name="name"
           value={form.name}
           onChange={onChange}
-          maxLength={150}
+          maxLength={MAX_NAME_LENGTH}
         />
 
         {errors.name ? <small className="field-error">{errors.name}</small> : null}
@@ -88,13 +102,17 @@ export default function ProductFormFields({ form, errors, onChange }: Props) {
         name="brand"
         value={form.brand}
         placeholder="Select brand"
+        required
         options={brandOptions.map((b) => ({ value: b, label: b }))}
         error={errors.brand}
         onChange={onChange}
       />
 
       <div className={errors.description ? "form-group form-group-error" : "form-group"}>
-        <label>Description</label>
+        <label>
+          Description
+          <RequiredMark />
+        </label>
 
         <textarea
           name="description"
@@ -111,7 +129,10 @@ export default function ProductFormFields({ form, errors, onChange }: Props) {
 
       <div className="form-row">
         <div className={errors.price ? "form-group form-group-error" : "form-group"}>
-          <label>Price (₱)</label>
+          <label>
+            Price (₱)
+            <RequiredMark />
+          </label>
 
           <input
             type="number"
@@ -119,6 +140,7 @@ export default function ProductFormFields({ form, errors, onChange }: Props) {
             value={form.price}
             onChange={onChange}
             min="0"
+            max={MAX_PRICE}
             step="0.01"
           />
 
@@ -126,7 +148,10 @@ export default function ProductFormFields({ form, errors, onChange }: Props) {
         </div>
 
         <div className={errors.stock ? "form-group form-group-error" : "form-group"}>
-          <label>Stock</label>
+          <label>
+            Stock
+            <RequiredMark />
+          </label>
 
           <input
             type="number"
@@ -147,6 +172,7 @@ export default function ProductFormFields({ form, errors, onChange }: Props) {
           name="category"
           value={form.category}
           placeholder="Select category"
+          required
           options={CATEGORY_OPTIONS}
           error={errors.category}
           onChange={onChange}

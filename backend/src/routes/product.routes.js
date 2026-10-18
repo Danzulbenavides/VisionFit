@@ -17,7 +17,7 @@ const router = Router();
 router.get("/", getProducts);
 router.get("/:id", getProductById);
 
-// Admin + Staff: create and edit products
+// Admin + Staff: create, edit and delete products
 router.post("/", authenticate, requireRole("ADMIN", "STAFF"), createProduct);
 
 router.patch(
@@ -27,7 +27,11 @@ router.patch(
   updateProduct,
 );
 
-// Admin only: delete products
-router.delete("/:id", authenticate, requireRole("ADMIN"), deleteProduct);
+router.delete(
+  "/:id",
+  authenticate,
+  requireRole("ADMIN", "STAFF"),
+  deleteProduct,
+);
 
 export default router;

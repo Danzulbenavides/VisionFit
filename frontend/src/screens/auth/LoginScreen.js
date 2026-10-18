@@ -62,6 +62,13 @@ export default function LoginScreen({ navigation, route }) {
         return;
       }
 
+          if (serverError?.suspended) {
+        Alert.alert(
+          "Account Suspended", serverError.message
+        );
+        return;
+      }
+
       Alert.alert(
         "Login Failed",
         error.message || "Unable to connect to the VisionFit server.",

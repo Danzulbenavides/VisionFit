@@ -126,13 +126,6 @@ export default function Products() {
             Search, filter, and manage VisionFit eyewear.
           </p>
         </div>
-
-        <button
-          className="primary-admin-button"
-          onClick={() => navigate("/products/add")}
-        >
-          + Add Product
-        </button>
       </div>
 
       {/* FILTERS */}
@@ -298,7 +291,6 @@ export default function Products() {
                 <th>Price</th>
                 <th>Stock</th>
                 <th>Status</th>
-                <th>Actions</th>
               </tr>
             </thead>
 
@@ -343,28 +335,6 @@ export default function Products() {
                     >
                       {product.isActive === false ? "Inactive" : "Active"}
                     </span>
-                  </td>
-
-                  {/* ACTIONS */}
-                  <td>
-                    <div className="product-actions">
-                      <button
-                        className="secondary-admin-button"
-                        onClick={() =>
-                          navigate(`/products/edit/${product._id}`)
-                        }
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        className="danger-admin-button"
-                        onClick={() => handleDelete(product)}
-                        disabled={deletingId === product._id}
-                      >
-                        {deletingId === product._id ? "Deleting..." : "Delete"}
-                      </button>
-                    </div>
                   </td>
                 </tr>
               ))}

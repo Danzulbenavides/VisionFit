@@ -13,7 +13,7 @@ const AddProduct = () => {
 
   const [form, setForm] = useState({
     name: "",
-    brand: "VisionFit",
+    brand: "",
     description: "",
     price: "",
     stock: "",

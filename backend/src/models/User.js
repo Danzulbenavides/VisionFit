@@ -57,6 +57,13 @@ const userSchema = new mongoose.Schema(
       index: true,
     },
 
+    suspensionReason: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+      default: null,
+    },
+
     emailVerified: {
       type: Boolean,
       default: false,
