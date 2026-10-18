@@ -17,11 +17,17 @@ const router = Router();
 router.get("/", getProducts);
 router.get("/:id", getProductById);
 
-// Admin-only product management
-router.post("/", authenticate, requireRole("ADMIN"), createProduct);
+// Admin + Staff: create and edit products
+router.post("/", authenticate, requireRole("ADMIN", "STAFF"), createProduct);
 
-router.patch("/:id", authenticate, requireRole("ADMIN"), updateProduct);
+router.patch(
+  "/:id",
+  authenticate,
+  requireRole("ADMIN", "STAFF"),
+  updateProduct,
+);
 
+// Admin only: delete products
 router.delete("/:id", authenticate, requireRole("ADMIN"), deleteProduct);
 
 export default router;

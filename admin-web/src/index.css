@@ -220,7 +220,12 @@ input {
 
 .admin-sidebar {
   width: 240px;
-  min-height: 100vh;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  align-self: flex-start;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 28px 18px;

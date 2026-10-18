@@ -112,3 +112,22 @@ export const getProductDataQuality =
 
     return response.data;
   };
+
+export interface AnalyticsTrendsDatum {
+  date: string;
+  orderCount: number;
+  totalRevenue: number;
+}
+
+export interface AnalyticsTrendsResponse {
+  data?: AnalyticsTrendsDatum[];
+  error?: {
+    message: string;
+  };
+}
+
+export const getAnalyticsTrends =
+  async (): Promise<AnalyticsTrendsResponse> => {
+    const response = await apiClient.get("/admin/analytics/trends");
+    return response.data;
+  };

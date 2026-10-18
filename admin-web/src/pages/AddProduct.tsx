@@ -61,7 +61,7 @@ const AddProduct = () => {
       setTimeout(() => {
         navigate("/products");
       }, 1000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Create product error:", err);
 
       setError(

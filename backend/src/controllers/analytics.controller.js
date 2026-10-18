@@ -878,3 +878,62 @@ export const getProductDataQuality = asyncHandler(async (req, res) => {
     error: null,
   });
 });
+
+ // =========================================
+// ANALYTICS TRENDS (LAST 30 DAYS)
+// =========================================
+export const getAnalyticsTrends = asyncHandler(async (req, res) => {
+  const DAYS = 30;
+  const TIMEZONE = "Asia/Manila";
+  const isAdmin = req.user.role === "ADMIN";
+
+  // Last 30 calendar days in Philippine time, oldest first
+  const dayKeys = [];
+  for (let i = DAYS - 1; i >= 0; i -= 1) {
+    const day = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    dayKeys.push(day.toLocaleDateString("en-CA", { timeZone: TIMEZONE }));
+  }
+
+  const startDate = new Date(`${dayKeys[0]}T00:00:00+08:00`);
+
+  const rows = await Order.aggregate([
+    {
+      $match: {
+        createdAt: { $gte: startDate },
+        orderStatus: "DELIVERED", // Only delivered orders count for revenue trends
+      },
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: "%Y-%m-%d",
+            date: "$createdAt",
+            timezone: TIMEZONE,
+          },
+        },
+        orderCount: { $sum: 1 },
+        totalRevenue: { $sum: "$total" },
+      },
+    },
+  ]);
+
+  const byDate = new Map(rows.map((row) => [row._id, row]));
+
+  // Fill days without orders with 0 so charts always get 30 points
+  const trends = dayKeys.map((date) => {
+    const row = byDate.get(date);
+
+    return {
+      date,
+      orderCount: row ? row.orderCount : 0,
+      // Revenue is only visible to ADMIN
+      totalRevenue: row && isAdmin ? row.totalRevenue : 0,
+    };
+  });
+
+  return res.status(200).json({
+    data: trends,
+    error: null,
+  });
+});
