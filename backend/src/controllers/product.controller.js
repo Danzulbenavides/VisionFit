@@ -76,7 +76,7 @@ export const getProducts = asyncHandler(async (req, res) => {
     filter.genderCategory = genderCategory;
   }
 
-  if (minPrice !== undefined) {
+  if (minPrice !== undefined && minPrice !== "") {
     const value = Number(minPrice);
 
     if (!Number.isFinite(value) || value < 0) {
@@ -89,7 +89,7 @@ export const getProducts = asyncHandler(async (req, res) => {
     };
   }
 
-  if (maxPrice !== undefined) {
+  if (maxPrice !== undefined && maxPrice !== "") {
     const value = Number(maxPrice);
 
     if (!Number.isFinite(value) || value < 0) {
@@ -103,8 +103,8 @@ export const getProducts = asyncHandler(async (req, res) => {
   }
 
   if (
-    minPrice !== undefined &&
-    maxPrice !== undefined &&
+    (minPrice !== undefined && minPrice !== "") &&
+    (maxPrice !== undefined && maxPrice !== "") &&
     Number(minPrice) > Number(maxPrice)
   ) {
     throw new ApiError(
@@ -113,7 +113,7 @@ export const getProducts = asyncHandler(async (req, res) => {
     );
   }
 
-  if (minStock !== undefined) {
+  if (minStock !== undefined && minStock !== "") {
     const value = Number(minStock);
 
     if (!Number.isInteger(value) || value < 0) {

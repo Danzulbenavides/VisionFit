@@ -1,10 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import { getProducts } from "../api/products";
 import { getAdminOrders, type Order } from "../api/orders";
-import { getAdminUsers, type User } from "../api/users";
 import {
   getAnalyticsSummary,
+  getAnalyticsTrends,
   getProductDataQuality,
   type AnalyticsEvents,
   type PopularFrameShape,
@@ -14,8 +29,6 @@ import {
   type RecommendationFeedbackFaceShape,
   type RecommendationFeedbackProduct,
 } from "../api/analytics";
-
-const LOW_STOCK_THRESHOLD = 5;
 
 const formatCurrency = (value: number) => {
   return `₱${Number(value || 0).toLocaleString()}`;
@@ -32,43 +45,60 @@ const formatFaceShape = (value: string) => {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 };
 
+const LOW_STOCK_THRESHOLD = 10;
+
+const CHART_HEIGHT = 260;
+
+const emptyRecommendationAnalytics: RecommendationAnalytics = {
+  totalFeedback: 0,
+  helpful: 0,
+  notHelpful: 0,
+  helpfulRate: 0,
+  averageMatchScore: 0,
+};
+
+const emptyEvents: AnalyticsEvents = {
+  total: 0,
+  productViews: 0,
+  addToCart: 0,
+  removeFromCart: 0,
+  favorites: 0,
+  unfavorites: 0,
+  faceScans: 0,
+  checkoutStarted: 0,
+  orderCompletedEvents: 0,
+  recommendationFeedback: 0,
+};
+
+const emptyDataQuality: ProductDataQualitySummary = {
+  totalProducts: 0,
+  productsWithIssues: 0,
+  missingName: 0,
+  missingPrice: 0,
+  missingCategory: 0,
+  missingFrameShape: 0,
+  missingMaterial: 0,
+  missingDescription: 0,
+  missingImage: 0,
+  missingPrescriptionData: 0,
+  missingTryOnImage: 0,
+};
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // -----------------------------------------
   // PRODUCT METRICS
-  // -----------------------------------------
-
   const [productCount, setProductCount] = useState(0);
   const [totalUnits, setTotalUnits] = useState(0);
   const [lowStockCount, setLowStockCount] = useState(0);
 
-  // -----------------------------------------
   // RECOMMENDATION ANALYTICS
-  // -----------------------------------------
-
   const [recommendationAnalytics, setRecommendationAnalytics] =
-    useState<RecommendationAnalytics>({
-      totalFeedback: 0,
-      helpful: 0,
-      notHelpful: 0,
-      helpfulRate: 0,
-      averageMatchScore: 0,
-    });
+    useState<RecommendationAnalytics>(emptyRecommendationAnalytics);
 
-  const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEvents>({
-    total: 0,
-    productViews: 0,
-    addToCart: 0,
-    removeFromCart: 0,
-    favorites: 0,
-    unfavorites: 0,
-    faceScans: 0,
-    checkoutStarted: 0,
-    orderCompletedEvents: 0,
-    recommendationFeedback: 0,
-  });
+  const [analyticsEvents, setAnalyticsEvents] =
+    useState<AnalyticsEvents>(emptyEvents);
 
   const [recommendationFeedbackByProduct, setRecommendationFeedbackByProduct] =
     useState<RecommendationFeedbackProduct[]>([]);
@@ -83,35 +113,22 @@ export default function Dashboard() {
   >([]);
 
   const [productDataQuality, setProductDataQuality] =
-    useState<ProductDataQualitySummary>({
-      totalProducts: 0,
-      productsWithIssues: 0,
-      missingName: 0,
-      missingPrice: 0,
-      missingCategory: 0,
-      missingFrameShape: 0,
-      missingMaterial: 0,
-      missingDescription: 0,
-      missingImage: 0,
-      missingPrescriptionData: 0,
-      missingTryOnImage: 0,
-    });
+    useState<ProductDataQualitySummary>(emptyDataQuality);
 
   const [productDataQualityIssues, setProductDataQualityIssues] = useState<
     ProductDataQualityIssue[]
   >([]);
 
-  // -----------------------------------------
-  // ORDERS / USERS
-  // -----------------------------------------
+  // GRAPH DATA
+  const [orderTrendsData, setOrderTrendsData] = useState<
+    Array<{ date: string; orderCount: number; totalRevenue: number }>
+  >([]);
+  const [width, setWidth] = useState<number>(0);
 
+  // ORDERS
   const [orders, setOrders] = useState<Order[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
 
-  // -----------------------------------------
   // LOAD DASHBOARD
-  // -----------------------------------------
-
   const loadDashboard = useCallback(async () => {
     try {
       setLoading(true);
@@ -120,9 +137,9 @@ export default function Dashboard() {
       const [
         productsResult,
         ordersResult,
-        usersResult,
         analyticsResult,
         productQualityResult,
+        trendsResult,
       ] = await Promise.all([
         getProducts({
           search: "",
@@ -140,89 +157,46 @@ export default function Dashboard() {
 
         getAdminOrders(),
 
-        getAdminUsers(),
-
         getAnalyticsSummary(),
 
         getProductDataQuality(),
+
+        getAnalyticsTrends(),
       ]);
 
-      // -----------------------------------------
       // PRODUCTS
-      // -----------------------------------------
-
       if (productsResult.error) {
         throw new Error(productsResult.error.message);
       }
 
       const products = productsResult.data?.products || [];
-
-      setProductCount(productsResult.data?.pagination.total || products.length);
-
+      setProductCount(products.length);
       setTotalUnits(
-        products.reduce((sum, product) => sum + (product.stock ?? 0), 0),
+        products.reduce((sum, product) => sum + (product.stock || 0), 0),
       );
-
       setLowStockCount(
-        products.filter(
-          (product) =>
-            (product.stock ?? 0) > 0 &&
-            (product.stock ?? 0) <= LOW_STOCK_THRESHOLD,
-        ).length,
+        products.filter((product) => (product.stock || 0) < LOW_STOCK_THRESHOLD)
+          .length,
       );
 
-      // -----------------------------------------
       // ORDERS
-      // -----------------------------------------
-
       if (ordersResult.error) {
         throw new Error(ordersResult.error.message);
       }
 
       setOrders(ordersResult.data || []);
 
-      // -----------------------------------------
-      // USERS
-      // -----------------------------------------
-
-      if (usersResult.error) {
-        throw new Error(usersResult.error.message);
-      }
-
-      setUsers(usersResult.data || []);
-
-      // -----------------------------------------
       // ANALYTICS
-      // -----------------------------------------
-
       if (analyticsResult.error) {
         throw new Error(analyticsResult.error.message);
       }
 
       setRecommendationAnalytics(
-        analyticsResult.data?.recommendationAnalytics || {
-          totalFeedback: 0,
-          helpful: 0,
-          notHelpful: 0,
-          helpfulRate: 0,
-          averageMatchScore: 0,
-        },
+        analyticsResult.data?.recommendationAnalytics ||
+          emptyRecommendationAnalytics,
       );
 
-      setAnalyticsEvents(
-        analyticsResult.data?.events || {
-          total: 0,
-          productViews: 0,
-          addToCart: 0,
-          removeFromCart: 0,
-          favorites: 0,
-          unfavorites: 0,
-          faceScans: 0,
-          checkoutStarted: 0,
-          orderCompletedEvents: 0,
-          recommendationFeedback: 0,
-        },
-      );
+      setAnalyticsEvents(analyticsResult.data?.events || emptyEvents);
 
       setRecommendationFeedbackByProduct(
         analyticsResult.data?.recommendationFeedbackByProduct || [],
@@ -234,27 +208,29 @@ export default function Dashboard() {
 
       setPopularFrameShapes(analyticsResult.data?.popularFrameShapes || []);
 
+      // PRODUCT DATA QUALITY
       if (productQualityResult.error) {
         throw new Error(productQualityResult.error.message);
       }
 
       setProductDataQuality(
-        productQualityResult.data?.summary || {
-          totalProducts: 0,
-          productsWithIssues: 0,
-          missingName: 0,
-          missingPrice: 0,
-          missingCategory: 0,
-          missingFrameShape: 0,
-          missingMaterial: 0,
-          missingDescription: 0,
-          missingImage: 0,
-          missingPrescriptionData: 0,
-          missingTryOnImage: 0,
-        },
+        productQualityResult.data?.summary || emptyDataQuality,
       );
 
       setProductDataQualityIssues(productQualityResult.data?.issues || []);
+
+      // TRENDS
+      if (trendsResult.error) {
+        throw new Error(trendsResult.error.message);
+      }
+
+      setOrderTrendsData(
+        trendsResult.data?.map((trend: any) => ({
+          date: trend.date,
+          orderCount: trend.orderCount,
+          totalRevenue: trend.totalRevenue,
+        })) || [],
+      );
     } catch (err: any) {
       console.error("Load dashboard error:", err);
 
@@ -273,10 +249,18 @@ export default function Dashboard() {
     loadDashboard();
   }, [loadDashboard]);
 
-  // -----------------------------------------
-  // ORDER METRICS
-  // -----------------------------------------
+  useEffect(() => {
+    const handleResize = () => {
+      setWidth(window.innerWidth);
+    };
 
+    handleResize();
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // ORDER METRICS
   const totalOrders = orders.length;
 
   const pendingOrders = orders.filter(
@@ -299,59 +283,24 @@ export default function Dashboard() {
     .filter((order) => order.orderStatus !== "CANCELLED")
     .reduce((sum, order) => sum + Number(order.total || 0), 0);
 
-  // -----------------------------------------
-  // USER METRICS
-  // -----------------------------------------
-
-  const totalUsers = users.length;
-
-  const activeUsers = users.filter((user) => user.isActive).length;
-
-  const customerCount = users.filter((user) => user.role === "CUSTOMER").length;
-
-  // -----------------------------------------
   // RECENT ORDERS
-  // -----------------------------------------
-
   const recentOrders = [...orders]
     .sort((a, b) => {
       const dateA = new Date(a.createdAt || 0).getTime();
-
       const dateB = new Date(b.createdAt || 0).getTime();
 
       return dateB - dateA;
     })
     .slice(0, 5);
 
-  // -----------------------------------------
-  // ACTIVITY CHART DATA
-  // -----------------------------------------
-
+  // ACTIVITY CHART DATA (progress bars)
   const activityChartData = [
-    {
-      label: "Product views",
-      value: analyticsEvents.productViews,
-    },
-    {
-      label: "Face scans",
-      value: analyticsEvents.faceScans,
-    },
-    {
-      label: "Add-to-cart",
-      value: analyticsEvents.addToCart,
-    },
-    {
-      label: "Favorites",
-      value: analyticsEvents.favorites,
-    },
-    {
-      label: "Checkout started",
-      value: analyticsEvents.checkoutStarted,
-    },
-    {
-      label: "Completed orders",
-      value: analyticsEvents.orderCompletedEvents,
-    },
+    { label: "Product views", value: analyticsEvents.productViews },
+    { label: "Face scans", value: analyticsEvents.faceScans },
+    { label: "Add-to-cart", value: analyticsEvents.addToCart },
+    { label: "Favorites", value: analyticsEvents.favorites },
+    { label: "Checkout started", value: analyticsEvents.checkoutStarted },
+    { label: "Completed orders", value: analyticsEvents.orderCompletedEvents },
   ];
 
   const maxActivityCount = Math.max(
@@ -359,16 +308,72 @@ export default function Dashboard() {
     1,
   );
 
-  // -----------------------------------------
-  // RENDER
-  // -----------------------------------------
+  // GRAPH DATA (derived from current state at render time)
+  const eventBarData = [
+    { name: "Product Views", value: analyticsEvents.productViews },
+    { name: "Face Scans", value: analyticsEvents.faceScans },
+    { name: "Add to Cart", value: analyticsEvents.addToCart },
+    { name: "Favorites", value: analyticsEvents.favorites },
+    { name: "Checkout Started", value: analyticsEvents.checkoutStarted },
+    { name: "Completed Orders", value: analyticsEvents.orderCompletedEvents },
+    { name: "Rec. Feedback", value: analyticsEvents.recommendationFeedback },
+  ];
+  const hasEvents = eventBarData.some((item) => item.value > 0);
 
+  const pieData = [
+    {
+      name: "Helpful",
+      value: recommendationAnalytics.helpful,
+      color: "#10b981",
+    },
+    {
+      name: "Not Helpful",
+      value: recommendationAnalytics.notHelpful,
+      color: "#ef4444",
+    },
+  ];
+  const hasFeedback =
+    recommendationAnalytics.helpful + recommendationAnalytics.notHelpful > 0;
+
+  // Full 30-day timeline (days without orders = 0).
+  // Falls back to the raw API data if dates are not YYYY-MM-DD.
+  const trendChartData = (() => {
+    const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+
+    if (
+      orderTrendsData.length === 0 ||
+      !orderTrendsData.every((trend) => isoDate.test(trend.date))
+    ) {
+      return orderTrendsData;
+    }
+
+    const byDate = new Map(orderTrendsData.map((trend) => [trend.date, trend]));
+
+    return Array.from({ length: 30 }, (_, index) => {
+      const day = new Date();
+      day.setUTCDate(day.getUTCDate() - (29 - index));
+      const key = day.toISOString().slice(0, 10);
+      const found = byDate.get(key);
+
+      return {
+        date: key,
+        orderCount: found?.orderCount ?? 0,
+        totalRevenue: found?.totalRevenue ?? 0,
+      };
+    });
+  })();
+
+  const chartGridColumns =
+    width >= 1100
+      ? "repeat(3, minmax(0, 1fr))"
+      : width >= 640
+        ? "repeat(2, minmax(0, 1fr))"
+        : "1fr";
+
+  // RENDER
   return (
     <div className="dashboard-page">
-      {/* ===================================== */}
       {/* HEADER */}
-      {/* ===================================== */}
-
       <div className="page-header-row">
         <div>
           <p className="page-eyebrow">OVERVIEW</p>
@@ -390,122 +395,48 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* ===================================== */}
       {/* ERROR */}
-      {/* ===================================== */}
-
       {error ? <div className="admin-error">{error}</div> : null}
 
-      {/* ===================================== */}
-      {/* PRIMARY METRICS */}
-      {/* ===================================== */}
-
-      <div className="inventory-summary-grid">
-        <div className="inventory-summary-card">
-          <span className="inventory-summary-label">Products</span>
-
-          <strong>{productCount}</strong>
-
-          <span className="inventory-summary-description">
-            Active catalog products
-          </span>
-        </div>
-
-        <div className="inventory-summary-card">
-          <span className="inventory-summary-label">Orders</span>
-
-          <strong>{totalOrders}</strong>
-
-          <span className="inventory-summary-description">
-            Total customer orders
-          </span>
-        </div>
-
-        <div className="inventory-summary-card">
-          <span className="inventory-summary-label">Users</span>
-
-          <strong>{totalUsers}</strong>
-
-          <span className="inventory-summary-description">
-            Registered accounts
-          </span>
-        </div>
-
-        <div className="inventory-summary-card">
-          <span className="inventory-summary-label">Sales</span>
-
-          <strong>{formatCurrency(totalSales)}</strong>
-
-          <span className="inventory-summary-description">
-            Excluding cancelled orders
-          </span>
-        </div>
-      </div>
-
-      {/* ===================================== */}
-      {/* SECONDARY METRICS */}
-      {/* ===================================== */}
-
-      <div className="dashboard-section-grid">
-        {/* INVENTORY */}
-
-        <section className="dashboard-card">
+      {/* SUMMARY CARDS */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: chartGridColumns,
+          gap: "24px",
+          marginBottom: "24px",
+        }}
+      >
+        <section className="dashboard-card" style={{ minWidth: 0 }}>
           <div className="dashboard-card-header">
             <div>
-              <p className="page-eyebrow">INVENTORY</p>
-
-              <h2>Stock Overview</h2>
+              <p className="page-eyebrow">PRODUCTS</p>
+              <h2>Product Inventory</h2>
             </div>
           </div>
 
           <div className="dashboard-metric-list">
             <div className="dashboard-metric-row">
-              <span>Total units</span>
-
-              <strong>{totalUnits}</strong>
+              <span>Total Products</span>
+              <strong>{productCount}</strong>
             </div>
-
             <div className="dashboard-metric-row">
-              <span>Low stock</span>
-
-              <strong>{lowStockCount}</strong>
+              <span>Total Units</span>
+              <strong>{totalUnits.toLocaleString()}</strong>
+            </div>
+            <div className="dashboard-metric-row">
+              <span>Low Stock</span>
+              <strong style={{ color: lowStockCount > 0 ? "#d97706" : undefined }}>
+                {lowStockCount}
+              </strong>
             </div>
           </div>
         </section>
 
-        {/* USERS */}
-
-        <section className="dashboard-card">
-          <div className="dashboard-card-header">
-            <div>
-              <p className="page-eyebrow">USERS</p>
-
-              <h2>User Overview</h2>
-            </div>
-          </div>
-
-          <div className="dashboard-metric-list">
-            <div className="dashboard-metric-row">
-              <span>Customers</span>
-
-              <strong>{customerCount}</strong>
-            </div>
-
-            <div className="dashboard-metric-row">
-              <span>Active users</span>
-
-              <strong>{activeUsers}</strong>
-            </div>
-          </div>
-        </section>
-
-        {/* ORDERS */}
-
-        <section className="dashboard-card">
+        <section className="dashboard-card" style={{ minWidth: 0 }}>
           <div className="dashboard-card-header">
             <div>
               <p className="page-eyebrow">ORDERS</p>
-
               <h2>Order Overview</h2>
             </div>
           </div>
@@ -513,36 +444,221 @@ export default function Dashboard() {
           <div className="dashboard-metric-list">
             <div className="dashboard-metric-row">
               <span>Pending</span>
-
-              <strong>{pendingOrders}</strong>
+              <strong style={{ color: pendingOrders > 0 ? "#d97706" : undefined }}>
+                {pendingOrders}
+              </strong>
             </div>
-
             <div className="dashboard-metric-row">
               <span>Processing</span>
-
               <strong>{processingOrders}</strong>
             </div>
-
             <div className="dashboard-metric-row">
               <span>Delivered</span>
-
-              <strong>{deliveredOrders}</strong>
+              <strong style={{ color: "#059669" }}>{deliveredOrders}</strong>
             </div>
-
             <div className="dashboard-metric-row">
               <span>Cancelled</span>
+              <strong style={{ color: cancelledOrders > 0 ? "#dc2626" : undefined }}>
+                {cancelledOrders}
+              </strong>
+            </div>
+          </div>
+        </section>
 
-              <strong>{cancelledOrders}</strong>
+        <section className="dashboard-card" style={{ minWidth: 0 }}>
+          <div className="dashboard-card-header">
+            <div>
+              <p className="page-eyebrow">SALES</p>
+              <h2>Sales Performance</h2>
+            </div>
+          </div>
+
+          <div className="dashboard-metric-list">
+            <div className="dashboard-metric-row">
+              <span>Total Orders</span>
+              <strong>{totalOrders}</strong>
+            </div>
+            <div className="dashboard-metric-row">
+              <span>Total Sales</span>
+              <strong style={{ color: "#059669" }}>
+                {formatCurrency(totalSales)}
+              </strong>
             </div>
           </div>
         </section>
       </div>
 
-      {/* ===================================== */}
-      {/* RECOMMENDATION ANALYTICS */}
-      {/* ===================================== */}
+      {/* CHARTS */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: chartGridColumns,
+          gap: "24px",
+          marginBottom: "24px",
+        }}
+      >
+        {/* EVENT COUNTS */}
+        <section className="dashboard-card" style={{ minWidth: 0 }}>
+          <div className="dashboard-card-header">
+            <div>
+              <p className="page-eyebrow">EVENTS</p>
+              <h2>Event Counts by Type</h2>
+            </div>
+          </div>
 
-      <section className="dashboard-card">
+          <div style={{ height: CHART_HEIGHT, minWidth: 0 }}>
+            {hasEvents ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={eventBarData}
+                  layout="vertical"
+                  margin={{ top: 4, right: 16, left: 0, bottom: 4 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    allowDecimals={false}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={110}
+                    tick={{ fontSize: 11 }}
+                    interval={0}
+                  />
+                  <Tooltip cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                  <Bar
+                    dataKey="value"
+                    name="Count"
+                    fill="#3b82f6"
+                    radius={[0, 4, 4, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="admin-empty">
+                <p>No event data recorded yet.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* RECOMMENDATION FEEDBACK */}
+        <section className="dashboard-card" style={{ minWidth: 0 }}>
+          <div className="dashboard-card-header">
+            <div>
+              <p className="page-eyebrow">FEEDBACK</p>
+              <h2>Recommendation Feedback</h2>
+            </div>
+          </div>
+
+          <div style={{ height: CHART_HEIGHT, minWidth: 0 }}>
+            {hasFeedback ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius="55%"
+                    outerRadius="80%"
+                    paddingAngle={2}
+                  >
+                    {pieData.map((item) => (
+                      <Cell key={item.name} fill={item.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 12 }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="admin-empty">
+                <p>No helpful / not-helpful feedback data available.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ORDER TRENDS */}
+        <section className="dashboard-card" style={{ minWidth: 0 }}>
+          <div className="dashboard-card-header">
+            <div>
+              <p className="page-eyebrow">ORDERS</p>
+              <h2>Order Trends (Last 30 Days)</h2>
+            </div>
+          </div>
+
+          <div style={{ height: CHART_HEIGHT, minWidth: 0 }}>
+            {trendChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={trendChartData}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11 }}
+                    minTickGap={24}
+                    tickFormatter={(value) => String(value).slice(5)}
+                  />
+                  <YAxis
+                    yAxisId="orders"
+                    allowDecimals={false}
+                    tick={{ fontSize: 11 }}
+                    width={32}
+                  />
+                  <YAxis
+                    yAxisId="revenue"
+                    orientation="right"
+                    tick={{ fontSize: 11 }}
+                    width={48}
+                    tickFormatter={(value) => `₱${Number(value) / 1000}k`}
+                  />
+                  <Tooltip
+                    labelFormatter={(label) => `Date: ${label}`}
+                    formatter={(value, name) =>
+                      name === "Revenue" ? formatCurrency(Number(value)) : value
+                    }
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Line
+                    yAxisId="orders"
+                    type="monotone"
+                    dataKey="orderCount"
+                    name="Orders"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                  <Line
+                    yAxisId="revenue"
+                    type="monotone"
+                    dataKey="totalRevenue"
+                    name="Revenue"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="admin-empty">
+                <p>No orders in the last 30 days.</p>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* RECOMMENDATION ANALYTICS */}
+      <section className="dashboard-card" style={{ marginBottom: "24px" }}>
         <div className="dashboard-card-header">
           <div>
             <p className="page-eyebrow">RECOMMENDATIONS</p>
@@ -584,11 +700,8 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* ===================================== */}
       {/* POPULAR FRAME SHAPES */}
-      {/* ===================================== */}
-
-      <section className="dashboard-card">
+      <section className="dashboard-card" style={{ marginBottom: "24px" }}>
         <div className="dashboard-card-header">
           <div>
             <p className="page-eyebrow">FRAME ANALYTICS</p>
@@ -636,11 +749,69 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* ===================================== */}
-      {/* PRODUCT FEEDBACK */}
-      {/* ===================================== */}
+      {/* FEEDBACK BY FACE SHAPE */}
+      <section className="dashboard-card" style={{ marginBottom: "24px" }}>
+        <div className="dashboard-card-header">
+          <div>
+            <p className="page-eyebrow">FACE SHAPE ANALYTICS</p>
 
-      <section className="dashboard-card dashboard-recent-orders">
+            <h2>Recommendation Feedback by Face Shape</h2>
+
+            <p className="page-description">
+              Summary of recommendation feedback grouped by detected face shape.
+            </p>
+          </div>
+        </div>
+
+        {recommendationFeedbackByFaceShape.length === 0 ? (
+          <div className="admin-empty">
+            <h3>No face-shape feedback yet</h3>
+
+            <p>
+              Face-shape statistics will appear after customers submit feedback
+              from a new face scan.
+            </p>
+          </div>
+        ) : (
+          <div className="product-table-wrapper">
+            <table className="product-table">
+              <thead>
+                <tr>
+                  <th>Face Shape</th>
+                  <th>Total Feedback</th>
+                  <th>Helpful</th>
+                  <th>Not Helpful</th>
+                  <th>Helpful Rate</th>
+                  <th>Avg. Match Score</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {recommendationFeedbackByFaceShape.map((item) => (
+                  <tr key={item.faceShape}>
+                    <td>
+                      <strong>{formatFaceShape(item.faceShape)}</strong>
+                    </td>
+
+                    <td>{item.totalFeedback}</td>
+
+                    <td>{item.helpful}</td>
+
+                    <td>{item.notHelpful}</td>
+
+                    <td>{item.helpfulRate}%</td>
+
+                    <td>{item.averageMatchScore}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* FEEDBACK BY PRODUCT */}
+      <section className="dashboard-card" style={{ marginBottom: "24px" }}>
         <div className="dashboard-card-header">
           <div>
             <p className="page-eyebrow">PRODUCT FEEDBACK</p>
@@ -648,71 +819,6 @@ export default function Dashboard() {
             <h2>Recommendation Feedback by Product</h2>
           </div>
         </div>
-
-        {/* ===================================== */}
-        {/* FEEDBACK BY FACE SHAPE */}
-        {/* ===================================== */}
-
-        <section className="dashboard-card dashboard-recent-orders">
-          <div className="dashboard-card-header">
-            <div>
-              <p className="page-eyebrow">FACE SHAPE ANALYTICS</p>
-
-              <h2>Recommendation Feedback by Face Shape</h2>
-
-              <p className="page-description">
-                Summary of recommendation feedback grouped by detected face
-                shape.
-              </p>
-            </div>
-          </div>
-
-          {recommendationFeedbackByFaceShape.length === 0 ? (
-            <div className="admin-empty">
-              <h3>No face-shape feedback yet</h3>
-
-              <p>
-                Face-shape statistics will appear after customers submit
-                feedback from a new face scan.
-              </p>
-            </div>
-          ) : (
-            <div className="product-table-wrapper">
-              <table className="product-table">
-                <thead>
-                  <tr>
-                    <th>Face Shape</th>
-                    <th>Total Feedback</th>
-                    <th>Helpful</th>
-                    <th>Not Helpful</th>
-                    <th>Helpful Rate</th>
-                    <th>Avg. Match Score</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {recommendationFeedbackByFaceShape.map((item) => (
-                    <tr key={item.faceShape}>
-                      <td>
-                        <strong>{formatFaceShape(item.faceShape)}</strong>
-                      </td>
-
-                      <td>{item.totalFeedback}</td>
-
-                      <td>{item.helpful}</td>
-
-                      <td>{item.notHelpful}</td>
-
-                      <td>{item.helpfulRate}%</td>
-
-                      <td>{item.averageMatchScore}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
 
         {recommendationFeedbackByProduct.length === 0 ? (
           <div className="admin-empty">
@@ -758,11 +864,8 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* ===================================== */}
       {/* PRODUCT DATA QUALITY */}
-      {/* ===================================== */}
-
-      <section className="dashboard-card">
+      <section className="dashboard-card" style={{ marginBottom: "24px" }}>
         <div className="dashboard-card-header">
           <div>
             <p className="page-eyebrow">DATA QUALITY</p>
@@ -774,8 +877,6 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
-
-        {/* SUMMARY */}
 
         <div className="dashboard-section-grid">
           <section className="dashboard-card">
@@ -813,8 +914,6 @@ export default function Dashboard() {
               </div>
             </div>
           </section>
-
-          {/* FIELD ISSUES */}
 
           <section className="dashboard-card">
             <div className="dashboard-card-header">
@@ -872,7 +971,6 @@ export default function Dashboard() {
         </div>
 
         {/* PRODUCTS WITH ISSUES */}
-
         <div
           style={{
             marginTop: "24px",
@@ -942,11 +1040,8 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* ===================================== */}
       {/* STATISTICAL SUMMARY */}
-      {/* ===================================== */}
-
-      <section className="dashboard-card">
+      <section className="dashboard-card" style={{ marginBottom: "24px" }}>
         <div className="dashboard-card-header">
           <div>
             <p className="page-eyebrow">STATISTICS</p>
@@ -961,7 +1056,6 @@ export default function Dashboard() {
         </div>
 
         {/* INTERPRETATION OF RESULTS */}
-
         <div
           style={{
             marginTop: "28px",
@@ -1014,13 +1108,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* --------------------------------- */}
         {/* COUNTS + DESCRIPTIVE MEASURES */}
-        {/* --------------------------------- */}
-
-        <div className="dashboard-section-grid">
-          {/* ACTIVITY COUNTS */}
-
+        <div className="dashboard-section-grid" style={{ marginTop: "24px" }}>
           <section className="dashboard-card">
             <div className="dashboard-card-header">
               <div>
@@ -1075,8 +1164,6 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* DESCRIPTIVE MEASURES */}
-
           <section className="dashboard-card">
             <div className="dashboard-card-header">
               <div>
@@ -1120,10 +1207,7 @@ export default function Dashboard() {
           </section>
         </div>
 
-        {/* --------------------------------- */}
         {/* ACTIVITY DISTRIBUTION */}
-        {/* --------------------------------- */}
-
         <div
           style={{
             marginTop: "24px",
@@ -1131,37 +1215,23 @@ export default function Dashboard() {
             borderTop: "1px solid #E5E5E5",
           }}
         >
-          <div
-            style={{
-              marginBottom: "18px",
-            }}
-          >
+          <div style={{ marginBottom: "18px" }}>
             <p className="page-eyebrow">VISUAL SUMMARY</p>
 
             <h3 style={{ margin: 0 }}>Activity Distribution</h3>
 
-            <p
-              className="page-description"
-              style={{
-                marginTop: "6px",
-              }}
-            >
+            <p className="page-description" style={{ marginTop: "6px" }}>
               Comparison of recorded VisionFit user activities.
             </p>
           </div>
 
           <div>
             {activityChartData.map((item) => {
-              const width =
+              const pct =
                 item.value === 0 ? 0 : (item.value / maxActivityCount) * 100;
 
               return (
-                <div
-                  key={item.label}
-                  style={{
-                    marginBottom: "16px",
-                  }}
-                >
+                <div key={item.label} style={{ marginBottom: "16px" }}>
                   <div
                     style={{
                       display: "flex",
@@ -1186,7 +1256,7 @@ export default function Dashboard() {
                   >
                     <div
                       style={{
-                        width: `${width}%`,
+                        width: `${pct}%`,
                         height: "100%",
                         backgroundColor: "#222222",
                         borderRadius: "999px",
@@ -1201,10 +1271,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* ===================================== */}
       {/* RECENT ORDERS */}
-      {/* ===================================== */}
-
       <section className="dashboard-card dashboard-recent-orders">
         <div className="dashboard-card-header">
           <div>

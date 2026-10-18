@@ -17,8 +17,8 @@ const router = Router();
 router.get("/", getProducts);
 router.get("/:id", getProductById);
 
-// Staff-only product management
-router.post("/", authenticate, requireRole("STAFF"), createProduct);
+// Admin + Staff: create, edit and delete products
+router.post("/", authenticate, requireRole("ADMIN", "STAFF"), createProduct);
 
 router.patch(
   "/:id",

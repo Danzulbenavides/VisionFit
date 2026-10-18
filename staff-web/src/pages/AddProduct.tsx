@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type React } from "react";
 import { useNavigate } from "react-router-dom";
 import { createProduct } from "../api/products";
 import ProductFormFields from "../components/ProductFormFields";
@@ -44,7 +44,7 @@ const AddProduct = () => {
     setFieldErrors((previous) => ({ ...previous, [name]: undefined }));
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const validationErrors = validateProductForm(form);
@@ -78,15 +78,29 @@ const AddProduct = () => {
       setTimeout(() => {
         navigate("/products");
       }, 1000);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Create product error:", err);
 
-      setError(
-        err?.response?.data?.error?.message ||
-          err?.response?.data?.message ||
-          err?.message ||
-          "Failed to create product.",
-      );
+      let errorMessage = "Failed to create product.";
+      if (err !== null && typeof err === "object") {
+        if ("response" in err && err.response !== null) {
+          const response = err.response;
+          if (response !== null && typeof response === "object" && "data" in response && response.data !== null) {
+            const data = response.data;
+            if (data !== null && typeof data === "object") {
+              if ("error" in data && data.error !== null && typeof data.error === "object" && "message" in data.error && data.error.message !== null) {
+                errorMessage = String(data.error.message);
+              } else if ("message" in data && data.message !== null) {
+                errorMessage = String(data.message);
+              }
+            }
+          }
+        } else if ("message" in err && err.message !== null) {
+          errorMessage = String((err as { message: unknown }).message);
+        }
+      }
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

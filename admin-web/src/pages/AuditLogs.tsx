@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { getAuditLogs, type AuditLog } from "../api/auditLogs";
 
@@ -7,7 +7,7 @@ export default function AuditLogs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadAuditLogs = async () => {
+  const loadAuditLogs = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -26,11 +26,11 @@ export default function AuditLogs() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadAuditLogs();
-  }, []);
+  }, [loadAuditLogs]);
 
   return (
     <main className="dashboard-page">
@@ -47,8 +47,9 @@ export default function AuditLogs() {
           type="button"
           className="primary-button"
           onClick={loadAuditLogs}
+          disabled={loading}
         >
-          Refresh
+          {loading ? "Loading..." : "Refresh"}
         </button>
       </div>
 

@@ -5,6 +5,7 @@ import requireRole from "../middleware/role.middleware.js";
 
 import {
   getAnalyticsSummary,
+  getAnalyticsTrends,
   getProductDataQuality,
 } from "../controllers/analytics.controller.js";
 
@@ -13,11 +14,13 @@ const router = Router();
 // Every analytics request requires authentication
 router.use(authenticate);
 
-// Analytics are ADMIN only
-router.use(requireRole("ADMIN"));
+// Analytics summary is accessible to ADMIN and STAFF
+router.get("/summary", requireRole("ADMIN", "STAFF"), getAnalyticsSummary);
 
-router.get("/summary", getAnalyticsSummary);
+// Analytics trends (last 30 days) is accessible to ADMIN and STAFF
+router.get("/trends", requireRole("ADMIN", "STAFF"), getAnalyticsTrends);
 
-router.get("/product-quality", getProductDataQuality);
+// Product quality is ADMIN only
+router.get("/product-quality", requireRole("ADMIN"), getProductDataQuality);
 
 export default router;
