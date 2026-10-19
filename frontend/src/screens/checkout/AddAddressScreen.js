@@ -146,13 +146,6 @@ export default function AddAddressScreen({ navigation }) {
       />
 
       <Field
-        label="Street Address *"
-        value={street}
-        onChangeText={setStreet}
-        placeholder="Street address"
-      />
-
-      <Field
         label="Apartment / Unit"
         value={apartment}
         onChangeText={setApartment}
@@ -165,6 +158,13 @@ export default function AddAddressScreen({ navigation }) {
           <Text>{barangay || "Select your barangay"}</Text>
         </Pressable>
       </View>
+
+      <Field
+        label="Street Address *"
+        value={street}
+        onChangeText={setStreet}
+        placeholder="Street address"
+      />
 
       <Field
         label="Phone *"

@@ -60,13 +60,31 @@ export const getCoatingPrice = (product, coating) => {
 
 // =========================================
 // UNIT PRICE CALCULATION
-// unitPrice = frame price + lens price + coating price
+// unitPrice = frame price + lens prices + coating prices
+// lensType/coating may be a single string (legacy cart/order docs)
+// or an array of selections - each selection's add-on is summed.
 // =========================================
+
+export const normalizeSelections = (value) => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value) {
+    return [value];
+  }
+  return [];
+};
 
 export const calculateUnitPrice = (product, lensType, coating) => {
   const framePrice = Number(product?.price || 0);
-  const lensPrice = getLensTypePrice(product, lensType);
-  const coatingPrice = getCoatingPrice(product, coating);
+  const lensPrice = normalizeSelections(lensType).reduce(
+    (sum, value) => sum + getLensTypePrice(product, value),
+    0,
+  );
+  const coatingPrice = normalizeSelections(coating).reduce(
+    (sum, value) => sum + getCoatingPrice(product, value),
+    0,
+  );
 
   return {
     framePrice,

@@ -39,7 +39,6 @@ function Select({
   value,
   options,
   placeholder,
-  required,
   error,
   onChange,
 }: {

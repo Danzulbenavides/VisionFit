@@ -123,9 +123,9 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   const [error, setError] = useState("");
 
-  const [lensType, setLensType] = useState("FRAME_ONLY");
+  const [lensTypes, setLensTypes] = useState(["FRAME_ONLY"]);
 
-  const [coating, setCoating] = useState("NONE");
+  const [coatings, setCoatings] = useState(["NONE"]);
 
   const [quantity, setQuantity] = useState(1);
 
@@ -143,7 +143,50 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   const [faceImageUri, setFaceImageUri] = useState(initialImageUri);
 
-  const requiresPrescription = lensType !== "FRAME_ONLY";
+  const requiresPrescription = lensTypes.some((value) => value !== "FRAME_ONLY");
+
+  // =========================================
+  // MULTI-SELECT TOGGLES
+  // FRAME_ONLY / NONE are exclusive: selecting one clears the rest,
+  // selecting a real option removes the exclusive placeholder.
+  // Deselecting the last real option snaps back to the placeholder.
+  // =========================================
+
+  const toggleLensType = (value) => {
+    setLensTypes((current) => {
+      if (value === "FRAME_ONLY") {
+        // Frame only clears coatings - there are no lenses to coat
+        setCoatings(["NONE"]);
+        return ["FRAME_ONLY"];
+      }
+
+      const withoutFrameOnly = current.filter((item) => item !== "FRAME_ONLY");
+
+      if (withoutFrameOnly.includes(value)) {
+        const next = withoutFrameOnly.filter((item) => item !== value);
+        return next.length > 0 ? next : ["FRAME_ONLY"];
+      }
+
+      return [...withoutFrameOnly, value];
+    });
+  };
+
+  const toggleCoating = (value) => {
+    setCoatings((current) => {
+      if (value === "NONE") {
+        return ["NONE"];
+      }
+
+      const withoutNone = current.filter((item) => item !== "NONE");
+
+      if (withoutNone.includes(value)) {
+        const next = withoutNone.filter((item) => item !== value);
+        return next.length > 0 ? next : ["NONE"];
+      }
+
+      return [...withoutNone, value];
+    });
+  };
 
   // =========================================
   // LOAD PRODUCT
@@ -402,11 +445,11 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
         quantity,
 
-        lensType,
+        lensType: lensTypes,
 
         prescriptionId: requiresPrescription ? selectedPrescription._id : null,
 
-        coating,
+        coating: coatings,
       };
 
       console.log("Adding to cart:", payload);
@@ -486,13 +529,23 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   const image = product.images?.[0];
 
-  const selectedLens = LENS_TYPES.find((item) => item.value === lensType);
+  const selectedLensLabels = lensTypes
+    .map((value) => LENS_TYPES.find((item) => item.value === value)?.label)
+    .filter(Boolean);
 
-  const selectedCoating = COATINGS.find((item) => item.value === coating);
+  const selectedCoatingLabels = coatings
+    .map((value) => COATINGS.find((item) => item.value === value)?.label)
+    .filter(Boolean);
 
-  const lensPrice = getOptionPrice(product, "lens", lensType);
+  const lensPrice = lensTypes.reduce(
+    (sum, value) => sum + getOptionPrice(product, "lens", value),
+    0,
+  );
 
-  const coatingPrice = getOptionPrice(product, "coating", coating);
+  const coatingPrice = coatings.reduce(
+    (sum, value) => sum + getOptionPrice(product, "coating", value),
+    0,
+  );
 
   const unitTotal = Number(product.price || 0) + lensPrice + coatingPrice;
 
@@ -626,11 +679,13 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
       <Text style={styles.sectionTitle}>Lens Type</Text>
 
-      <Text style={styles.helperText}>Choose the type of lens you want.</Text>
+      <Text style={styles.helperText}>
+        Choose one or more lens types (e.g. Thin + Photochromic).
+      </Text>
 
       <View style={styles.options}>
         {LENS_TYPES.map((option) => {
-          const selected = lensType === option.value;
+          const selected = lensTypes.includes(option.value);
 
           const optionPrice = getOptionPrice(product, "lens", option.value);
 
@@ -638,7 +693,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
             <Pressable
               key={option.value}
               style={[styles.option, selected && styles.optionSelected]}
-              onPress={() => setLensType(option.value)}
+              onPress={() => toggleLensType(option.value)}
             >
               <Text
                 style={[
@@ -752,9 +807,13 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
       <Text style={styles.sectionTitle}>Lens Coating</Text>
 
+      <Text style={styles.helperText}>
+        Choose one or more coatings (e.g. UV Protection + Scratch Resistant).
+      </Text>
+
       <View style={styles.options}>
         {COATINGS.map((option) => {
-          const selected = coating === option.value;
+          const selected = coatings.includes(option.value);
 
           const optionPrice = getOptionPrice(product, "coating", option.value);
 
@@ -762,7 +821,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
             <Pressable
               key={option.value}
               style={[styles.option, selected && styles.optionSelected]}
-              onPress={() => setCoating(option.value)}
+              onPress={() => toggleCoating(option.value)}
             >
               <Text
                 style={[
@@ -818,10 +877,12 @@ export default function ProductDetailsScreen({ route, navigation }) {
       <View style={styles.summary}>
         <Text style={styles.summaryTitle}>Your Selection</Text>
 
-        <Text style={styles.summaryText}>Lens: {selectedLens?.label}</Text>
+        <Text style={styles.summaryText}>
+          Lens: {selectedLensLabels.join(" + ")}
+        </Text>
 
         <Text style={styles.summaryText}>
-          Coating: {selectedCoating?.label}
+          Coating: {selectedCoatingLabels.join(" + ")}
         </Text>
 
         {requiresPrescription ? (
@@ -846,7 +907,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
         {lensPrice > 0 ? (
           <View style={styles.summaryPriceRow}>
             <Text style={styles.summaryPriceLabel}>
-              Lens ({selectedLens?.label})
+              Lens ({selectedLensLabels.join(" + ")})
             </Text>
 
             <Text style={styles.summaryPriceValue}>
@@ -858,7 +919,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
         {coatingPrice > 0 ? (
           <View style={styles.summaryPriceRow}>
             <Text style={styles.summaryPriceLabel}>
-              Coating ({selectedCoating?.label})
+              Coating ({selectedCoatingLabels.join(" + ")})
             </Text>
 
             <Text style={styles.summaryPriceValue}>
@@ -1351,15 +1412,20 @@ const styles = StyleSheet.create({
   summaryPriceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
     marginBottom: 4,
   },
 
   summaryPriceLabel: {
+    flex: 1,
+    flexShrink: 1,
     fontSize: 13,
     color: "#555555",
   },
 
   summaryPriceValue: {
+    flexShrink: 0,
     fontSize: 13,
     color: "#333333",
     fontWeight: "600",

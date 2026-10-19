@@ -32,6 +32,14 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
+    // bcrypt hash of the static 6-digit PIN required by the admin and staff
+    // web apps before a session token is issued. null for customers and for
+    // any account that has not been given a PIN yet.
+    pinHash: {
+      type: String,
+      default: null,
+    },
+
     phone: {
       type: String,
       required: true,

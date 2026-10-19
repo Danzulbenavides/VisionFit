@@ -5,10 +5,12 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import EmailVerification from "../models/EmailVerification.js";
 import PasswordReset from "../models/PasswordReset.js";
+import PinReset from "../models/PinReset.js";
 import LoginThrottle from "../models/LoginThrottle.js";
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendPinResetEmail,
 } from "../services/email.service.js";
 import { requireFields } from "../utils/validation.js";
 import { recordAuditLog } from "./auditLog.controller.js";
@@ -16,6 +18,30 @@ import { recordAuditLog } from "./auditLog.controller.js";
 const VERIFICATION_TTL_MINUTES = 10;
 const VERIFICATION_MAX_ATTEMPTS = 5;
 const RESEND_COOLDOWN_SECONDS = 60;
+
+// The admin/staff web apps split login into two steps: password first, then a
+// static 6-digit PIN. The challenge JWT bridges the two steps and is useless
+// for anything except calling verifyPin.
+const PIN_CHALLENGE_TTL_SECONDS = 5 * 60;
+
+// Only these emails may use the admin/staff "Forgot PIN" flow. Override with
+// FORGOT_PIN_ALLOWED_EMAILS (comma-separated) in the backend .env file.
+const DEFAULT_FORGOT_PIN_ALLOWED_EMAILS = [
+  "randallbenedict14@gmail.com",
+  "danzulbenavides@gmail.com",
+  "mark011623@gmail.com",
+];
+
+const forgotPinAllowedEmails = () => {
+  const raw =
+    process.env.FORGOT_PIN_ALLOWED_EMAILS ||
+    DEFAULT_FORGOT_PIN_ALLOWED_EMAILS.join(",");
+
+  return raw
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+};
 
 // Login lockout: after this many wrong attempts the account is suspended,
 // for 5 minutes on the 1st lockout, 15 minutes on the 2nd and 30 minutes
@@ -164,6 +190,53 @@ const issueToken = (user) =>
       expiresIn: "1h",
     },
   );
+
+const issuePinChallenge = (user) =>
+  jwt.sign(
+    {
+      userId: user._id.toString(),
+      role: user.role,
+      purpose: "pin",
+    },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: `${PIN_CHALLENGE_TTL_SECONDS}s`,
+    },
+  );
+
+const issuePinResetCode = async (user, recoveryEmail) => {
+  const code = generateVerificationCode();
+  const now = new Date();
+
+  await PinReset.findOneAndUpdate(
+    { email: user.email },
+    {
+      email: user.email,
+      code,
+      recoveryEmail,
+      expiresAt: new Date(
+        now.getTime() + VERIFICATION_TTL_MINUTES * 60 * 1000,
+      ),
+      attempts: 0,
+      sentAt: now,
+    },
+    { upsert: true, setDefaultsOnInsert: true },
+  );
+
+  await sendPinResetEmail({
+    to: recoveryEmail,
+    firstName: user.firstName,
+    code,
+    accountEmail: user.email,
+  });
+
+  // Restart the resend cooldown from when the email actually went out, so a
+  // slow SMTP send does not silently burn the user's 60-second wait.
+  await PinReset.updateOne(
+    { email: user.email },
+    { $set: { sentAt: new Date() } },
+  );
+};
 
 const buildAuthPayload = (user) => ({
   id: user._id,
@@ -488,6 +561,21 @@ export const login = async (req, res) => {
       user.emailVerified = true;
     }
 
+    // Admin and staff accounts must still pass the 6-digit PIN step in the
+    // admin/staff web apps. Hand back a short-lived challenge instead of a
+    // session token; the throttle, lastLoginAt and audit log are only
+    // finalized once the PIN is confirmed.
+    if (user.role === "ADMIN" || user.role === "STAFF") {
+      return res.status(200).json({
+        data: {
+          requiresPin: true,
+          challenge: issuePinChallenge(user),
+          user: buildAuthPayload(user),
+        },
+        error: null,
+      });
+    }
+
     // Correct credentials and no blocking checks: clear failed attempts and
     // the strike level so the next lockout starts at 5 minutes again
     await LoginThrottle.deleteOne({ email: normalizedEmail });
@@ -528,6 +616,160 @@ export const login = async (req, res) => {
       data: null,
       error: {
         message: error.message || "Login failed",
+      },
+    });
+  }
+};
+
+export const verifyPin = async (req, res) => {
+  try {
+    const { challenge, pin } = req.body;
+
+    requireFields(req.body, ["challenge", "pin"]);
+
+    if (typeof challenge !== "string" || typeof pin !== "string") {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Invalid input types",
+        },
+      });
+    }
+
+    let payload;
+
+    try {
+      payload = jwt.verify(challenge, process.env.JWT_SECRET);
+    } catch {
+      return res.status(401).json({
+        data: null,
+        error: {
+          message:
+            "This sign-in attempt expired. Please enter your password again.",
+        },
+      });
+    }
+
+    if (payload.purpose !== "pin" || !payload.userId) {
+      return res.status(401).json({
+        data: null,
+        error: {
+          message:
+            "This sign-in attempt expired. Please enter your password again.",
+        },
+      });
+    }
+
+    const submittedPin = pin.trim();
+
+    if (!/^\d{6}$/.test(submittedPin)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Enter your 6-digit PIN.",
+        },
+      });
+    }
+
+    const user = await User.findById(payload.userId);
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({
+        data: null,
+        error: {
+          message:
+            "This sign-in attempt expired. Please enter your password again.",
+        },
+      });
+    }
+
+    const normalizedEmail = user.email;
+
+    // Same account lockout as the password step
+    const throttle = await LoginThrottle.findOne({
+      email: normalizedEmail,
+    });
+
+    if (throttle?.lockedUntil && throttle.lockedUntil.getTime() > Date.now()) {
+      const minutes = lockMinutesForStrike(throttle.strikes || 1);
+
+      return respondLocked(
+        res,
+        minutes,
+        (throttle.lockedUntil.getTime() - Date.now()) / 1000,
+      );
+    }
+
+    if (!user.pinHash) {
+      return res.status(403).json({
+        data: null,
+        error: {
+          message:
+            "No PIN has been set for this account. Use Forgot PIN or ask an administrator.",
+        },
+      });
+    }
+
+    const pinMatches = await bcrypt.compare(submittedPin, user.pinHash);
+
+    if (!pinMatches) {
+      const failure = await registerFailedLogin(normalizedEmail);
+
+      if (failure.locked) {
+        return respondLocked(
+          res,
+          failure.minutes,
+          (failure.lockedUntil.getTime() - Date.now()) / 1000,
+        );
+      }
+
+      return res.status(401).json({
+        data: null,
+        error: {
+          message: `Incorrect PIN. ${failure.attemptsRemaining} attempt${
+            failure.attemptsRemaining === 1 ? "" : "s"
+          } remaining before your account is temporarily locked.`,
+          attemptsRemaining: failure.attemptsRemaining,
+        },
+      });
+    }
+
+    // PIN confirmed: the sign-in is complete
+    await LoginThrottle.deleteOne({ email: normalizedEmail });
+
+    const token = issueToken(user);
+
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    if (user.role === "ADMIN") {
+      try {
+        await recordAuditLog({
+          adminId: user._id,
+          action: "LOGIN",
+          resourceType: "AUTH",
+          resourceId: user._id,
+          details: "Administrator logged in successfully.",
+        });
+      } catch (auditError) {
+        console.error("Audit log error:", auditError.message);
+      }
+    }
+
+    return res.status(200).json({
+      data: {
+        token,
+        user: buildAuthPayload(user),
+      },
+      error: null,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(error.statusCode || 500).json({
+      data: null,
+      error: {
+        message: error.message || "PIN verification failed",
       },
     });
   }
@@ -1098,6 +1340,388 @@ export const resetPassword = async (req, res) => {
       data: null,
       error: {
         message: error.message || "Password reset failed",
+      },
+    });
+  }
+};
+
+// Validates the recovery mailbox that receives the reset code. Only the
+// addresses in FORGOT_PIN_ALLOWED_EMAILS are authorized - this is the sole
+// gate that decides who may use PIN recovery at all.
+const validateRecoveryEmail = (res, recoveryEmail) => {
+  if (typeof recoveryEmail !== "string") {
+    res.status(400).json({
+      data: null,
+      error: {
+        message: "Invalid input types",
+      },
+    });
+    return null;
+  }
+
+  if (!isValidEmail(recoveryEmail)) {
+    res.status(400).json({
+      data: null,
+      error: {
+        message: "Invalid email address",
+      },
+    });
+    return null;
+  }
+
+  const normalizedRecoveryEmail = recoveryEmail.trim().toLowerCase();
+
+  if (!forgotPinAllowedEmails().includes(normalizedRecoveryEmail)) {
+    res.status(403).json({
+      data: null,
+      error: {
+        message: "This email is not authorized for PIN recovery.",
+      },
+    });
+    return null;
+  }
+
+  return normalizedRecoveryEmail;
+};
+
+// Validates the account whose PIN is being reset. It must exist, be active
+// and be one of the web roles (ADMIN/STAFF). Returns { normalizedEmail, user }
+// or null after sending the error response.
+const findPinResetAccount = async (res, email) => {
+  if (typeof email !== "string") {
+    res.status(400).json({
+      data: null,
+      error: {
+        message: "Invalid input types",
+      },
+    });
+    return null;
+  }
+
+  if (!isValidEmail(email)) {
+    res.status(400).json({
+      data: null,
+      error: {
+        message: "Invalid email address",
+      },
+    });
+    return null;
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const user = await User.findOne({ email: normalizedEmail });
+
+  if (!user || !user.isActive) {
+    res.status(404).json({
+      data: null,
+      error: {
+        message: "No admin or staff account exists for this email.",
+      },
+    });
+    return null;
+  }
+
+  if (user.role !== "ADMIN" && user.role !== "STAFF") {
+    res.status(403).json({
+      data: null,
+      error: {
+        message:
+          "Only admin and staff accounts can use PIN recovery.",
+      },
+    });
+    return null;
+  }
+
+  return { normalizedEmail, user };
+};
+
+export const forgotPin = async (req, res) => {
+  try {
+    const { email, recoveryEmail } = req.body;
+
+    requireFields(req.body, ["email", "recoveryEmail"]);
+
+    // Whitelist gate first so unauthorized mailboxes learn nothing about
+    // which accounts exist.
+    const normalizedRecoveryEmail = validateRecoveryEmail(
+      res,
+      recoveryEmail,
+    );
+
+    if (!normalizedRecoveryEmail) {
+      return;
+    }
+
+    const validated = await findPinResetAccount(res, email);
+
+    if (!validated) {
+      return;
+    }
+
+    const { normalizedEmail, user } = validated;
+
+    const record = await PinReset.findOne({ email: normalizedEmail });
+
+    if (record) {
+      const elapsedSeconds = (Date.now() - record.sentAt.getTime()) / 1000;
+
+      if (elapsedSeconds < RESEND_COOLDOWN_SECONDS) {
+        return res.status(429).json({
+          data: null,
+          error: {
+            message: `Please wait ${Math.ceil(
+              RESEND_COOLDOWN_SECONDS - elapsedSeconds,
+            )} seconds before requesting a new code.`,
+            retryAfterSeconds: Math.ceil(
+              RESEND_COOLDOWN_SECONDS - elapsedSeconds,
+            ),
+          },
+        });
+      }
+    }
+
+    try {
+      await issuePinResetCode(user, normalizedRecoveryEmail);
+    } catch (emailError) {
+      console.error("PIN reset email error:", emailError.message);
+
+      return res.status(502).json({
+        data: null,
+        error: {
+          message: "We could not send the PIN reset email. Please try again.",
+        },
+      });
+    }
+
+    return res.status(200).json({
+      data: {
+        message: `A 6-digit reset code was sent to ${normalizedRecoveryEmail}.`,
+        email: normalizedEmail,
+        recoveryEmail: normalizedRecoveryEmail,
+      },
+      error: null,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(error.statusCode || 500).json({
+      data: null,
+      error: {
+        message: error.message || "Could not start the PIN reset",
+      },
+    });
+  }
+};
+
+export const verifyPinResetCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    requireFields(req.body, ["email", "code"]);
+
+    // No whitelist re-check here: a PinReset record can only exist because a
+    // whitelisted recovery mailbox already received a code for this account.
+    const validated = await findPinResetAccount(res, email);
+
+    if (!validated) {
+      return;
+    }
+
+    const { normalizedEmail } = validated;
+    const submittedCode = typeof code === "string" ? code.trim() : "";
+
+    if (!/^\d{6}$/.test(submittedCode)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Enter the 6-digit code from your email.",
+        },
+      });
+    }
+
+    const record = await PinReset.findOne({ email: normalizedEmail });
+
+    if (!record) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "No reset code found. Please request a new one.",
+        },
+      });
+    }
+
+    if (record.expiresAt.getTime() < Date.now()) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "This code has expired. Please request a new one.",
+        },
+      });
+    }
+
+    if (record.attempts >= VERIFICATION_MAX_ATTEMPTS) {
+      return res.status(429).json({
+        data: null,
+        error: {
+          message:
+            "Too many incorrect attempts. Please request a new code.",
+        },
+      });
+    }
+
+    if (record.code !== submittedCode) {
+      record.attempts += 1;
+      await record.save();
+
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Incorrect reset code.",
+          attemptsRemaining: Math.max(
+            0,
+            VERIFICATION_MAX_ATTEMPTS - record.attempts,
+          ),
+        },
+      });
+    }
+
+    return res.status(200).json({
+      data: {
+        verified: true,
+        email: normalizedEmail,
+      },
+      error: null,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(error.statusCode || 500).json({
+      data: null,
+      error: {
+        message: error.message || "Code verification failed",
+      },
+    });
+  }
+};
+
+export const setNewPin = async (req, res) => {
+  try {
+    const { email, code, pin } = req.body;
+
+    requireFields(req.body, ["email", "code", "pin"]);
+
+    const validated = await findPinResetAccount(res, email);
+
+    if (!validated) {
+      return;
+    }
+
+    const { normalizedEmail, user } = validated;
+    const submittedCode = typeof code === "string" ? code.trim() : "";
+    const submittedPin = typeof pin === "string" ? pin.trim() : "";
+
+    if (!/^\d{6}$/.test(submittedCode)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Enter the 6-digit code from your email.",
+        },
+      });
+    }
+
+    if (!/^\d{6}$/.test(submittedPin)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "PIN must be exactly 6 digits.",
+        },
+      });
+    }
+
+    const record = await PinReset.findOne({ email: normalizedEmail });
+
+    if (!record) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "No reset code found. Please request a new one.",
+        },
+      });
+    }
+
+    if (record.expiresAt.getTime() < Date.now()) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "This code has expired. Please request a new one.",
+        },
+      });
+    }
+
+    if (record.attempts >= VERIFICATION_MAX_ATTEMPTS) {
+      return res.status(429).json({
+        data: null,
+        error: {
+          message:
+            "Too many incorrect attempts. Please request a new code.",
+        },
+      });
+    }
+
+    if (record.code !== submittedCode) {
+      record.attempts += 1;
+      await record.save();
+
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Incorrect reset code.",
+          attemptsRemaining: Math.max(
+            0,
+            VERIFICATION_MAX_ATTEMPTS - record.attempts,
+          ),
+        },
+      });
+    }
+
+    user.pinHash = await bcrypt.hash(submittedPin, 12);
+    await user.save();
+
+    await PinReset.deleteOne({ _id: record._id });
+
+    // A successful reset proves mailbox control, so any pending lockout
+    // from wrong PIN attempts is cleared.
+    await LoginThrottle.deleteOne({ email: normalizedEmail });
+
+    if (user.role === "ADMIN") {
+      try {
+        await recordAuditLog({
+          adminId: user._id,
+          action: "PIN_RESET",
+          resourceType: "AUTH",
+          resourceId: user._id,
+          details: "Administrator PIN reset via emailed code.",
+        });
+      } catch (auditError) {
+        console.error("Audit log error:", auditError.message);
+      }
+    }
+
+    return res.status(200).json({
+      data: {
+        reset: true,
+        email: normalizedEmail,
+      },
+      error: null,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(error.statusCode || 500).json({
+      data: null,
+      error: {
+        message: error.message || "PIN reset failed",
       },
     });
   }

@@ -16,7 +16,7 @@ const cartItemSchema = new mongoose.Schema(
     },
 
     lensType: {
-      type: String,
+      type: [String],
       enum: [
         "FRAME_ONLY",
         "STANDARD",
@@ -27,7 +27,7 @@ const cartItemSchema = new mongoose.Schema(
         "TRANSITIONS",
         "DRIVING",
       ],
-      default: "FRAME_ONLY",
+      default: ["FRAME_ONLY"],
     },
 
     prescriptionId: {
@@ -37,7 +37,7 @@ const cartItemSchema = new mongoose.Schema(
     },
 
     coating: {
-      type: String,
+      type: [String],
       enum: [
         "NONE",
         "ANTI_REFLECTIVE",
@@ -45,7 +45,7 @@ const cartItemSchema = new mongoose.Schema(
         "UV_PROTECTION",
         "SCRATCH_RESISTANT",
       ],
-      default: "NONE",
+      default: ["NONE"],
     },
 
     unitPrice: {

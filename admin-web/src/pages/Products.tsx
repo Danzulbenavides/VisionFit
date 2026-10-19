@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
-import { deleteProduct, getProducts } from "../api/products";
+import { getProducts } from "../api/products";
 
 import type { Product, ProductFilters } from "../api/products";
 
@@ -31,10 +30,6 @@ export default function Products() {
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState("");
-
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const navigate = useNavigate();
 
   const loadProducts = useCallback(async () => {
     try {
@@ -81,37 +76,6 @@ export default function Products() {
   const clearFilters = () => {
     setFilters(DEFAULT_FILTERS);
   };
-
-  const handleDelete = async (product: Product) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to deactivate "${product.name}"?`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setDeletingId(product._id);
-      setError("");
-
-      await deleteProduct(product._id);
-
-      await loadProducts();
-    } catch (err: any) {
-      console.error("Delete product error:", err);
-
-      setError(
-        err?.response?.data?.error?.message ||
-          err?.response?.data?.message ||
-          err?.message ||
-          "Failed to delete product.",
-      );
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
   return (
     <div className="dashboard-page">
       {/* HEADER */}

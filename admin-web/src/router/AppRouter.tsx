@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
 
 import Login from "../pages/Login";
+import ForgotPin from "../pages/ForgotPin";
 import Dashboard from "../pages/Dashboard";
 import Products from "../pages/Products";
 import Inventory from "../pages/Inventory";
@@ -28,6 +29,7 @@ export default function AppRouter() {
       <Route path="/" element={<Navigate to="/login" replace />} />
 
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-pin" element={<ForgotPin />} />
 
       <Route
         element={
@@ -39,7 +41,7 @@ export default function AppRouter() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/products" element={<Products />} />
         <Route path="/products/add" element={<AddProduct />} />
-        <Route path="/products/edit/:id" element={<EditProduct />} />s
+        <Route path="/products/edit/:id" element={<EditProduct />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/users" element={<Users />} />

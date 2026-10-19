@@ -5,10 +5,10 @@ export interface OrderItem {
   productName: string;
   quantity: number;
   unitPrice: number;
-  lensType?: string;
+  lensType?: string[] | string;
   prescriptionId?: string | null;
   prescriptionSnapshot?: unknown;
-  coating?: string;
+  coating?: string[] | string;
 }
 
 export interface AddressSnapshot {

@@ -26,6 +26,9 @@ if (!confirm) {
   console.log(`Database name: ${dbName}`);
 }
 
+// Default 6-digit PIN for admin/staff web login (change with set-pin.js)
+const DEFAULT_STAFF_PIN = "123456";
+
 async function run() {
   try {
     await mongoose.connect(MONGODB_URI, {
@@ -60,7 +63,18 @@ async function run() {
       const existingUser = await User.findOne({ email: userData.email });
       if (existingUser) {
         console.log(`User ${userData.email} already exists. Skipping.`);
-        // Optionally, we could ensure the role is correct, but we leave it as is.
+
+        // Backfill the admin/staff web PIN so existing seed accounts can
+        // pass the new PIN step.
+        if (
+          (userData.role === "ADMIN" || userData.role === "STAFF") &&
+          !existingUser.pinHash
+        ) {
+          existingUser.pinHash = await bcrypt.hash(DEFAULT_STAFF_PIN, 12);
+          await existingUser.save();
+          console.log(`  Set default PIN ${DEFAULT_STAFF_PIN} for web login.`);
+        }
+
         continue;
       }
 
@@ -73,9 +87,17 @@ async function run() {
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(randomPassword, salt);
 
+      // Admin/staff accounts also get the static 6-digit PIN used by the
+      // admin and staff web apps.
+      const pinHash =
+        userData.role === "ADMIN" || userData.role === "STAFF"
+          ? await bcrypt.hash(DEFAULT_STAFF_PIN, 12)
+          : null;
+
       const user = new User({
         ...userData,
         passwordHash,
+        pinHash,
         phone: randomPhone,
         emailVerified: true, // Assume email is verified for seed users
         isActive: true,
@@ -84,6 +106,9 @@ async function run() {
       await user.save();
       console.log(`Created user: ${userData.email} (role: ${userData.role})`);
       console.log(`  Generated password: ${randomPassword}`);
+      if (pinHash) {
+        console.log(`  Web login PIN: ${DEFAULT_STAFF_PIN}`);
+      }
       console.log(`  Phone number: ${randomPhone}`);
       console.log("  -> Please change password after first login!");
     }

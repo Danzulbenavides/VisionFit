@@ -1,4 +1,5 @@
-import { useState, type React } from "react";
+import { useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { createProduct } from "../api/products";
 import ProductFormFields from "../components/ProductFormFields";
@@ -56,7 +57,7 @@ const AddProduct = () => {
   const [success, setSuccess] = useState("");
 
   const handleChange = (
-    e: React.ChangeEvent<
+    e: ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >,
   ) => {
@@ -88,7 +89,7 @@ const AddProduct = () => {
     setFieldErrors((previous) => ({ ...previous, coatingPrices: undefined }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     const validationErrors = validateProductForm(form);

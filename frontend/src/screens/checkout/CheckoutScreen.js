@@ -435,14 +435,23 @@ export default function CheckoutScreen({ navigation }) {
 }
 
 function formatValue(value) {
+  const formatPart = (part) =>
+    String(part)
+      .replaceAll("_", " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+  // Legacy items stored a single string; new items store an array
+  if (Array.isArray(value)) {
+    const parts = value.map(formatPart).filter(Boolean);
+    return parts.length > 0 ? parts.join(" + ") : "None";
+  }
+
   if (!value) {
     return "None";
   }
 
-  return value
-    .replaceAll("_", " ")
-    .toLowerCase()
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return formatPart(value);
 }
 
 const s = StyleSheet.create({
