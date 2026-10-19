@@ -6,6 +6,8 @@ import { updateProduct, type Product } from "../api/products";
 import ProductFormFields from "../components/ProductFormFields";
 import {
   validateProductForm,
+  LENS_TYPE_OPTIONS,
+  COATING_OPTIONS,
   type FormErrors,
   type ProductFormValues,
 } from "../utils/validators";
@@ -27,6 +29,8 @@ const EditProduct = () => {
     material: "",
     genderCategory: "",
     imageUrl: "",
+    lensTypePrices: {} as Record<string, string>,
+    coatingPrices: {} as Record<string, string>,
   });
 
   const [loading, setLoading] = useState(true);
@@ -74,6 +78,22 @@ const EditProduct = () => {
           material: loadedProduct.material || "",
           genderCategory: loadedProduct.genderCategory || "",
           imageUrl: loadedProduct.images?.[0] || "",
+          lensTypePrices: Object.fromEntries(
+            LENS_TYPE_OPTIONS.map((option) => [
+              option.value,
+              loadedProduct.lensTypePrices?.[option.value] !== undefined
+                ? String(loadedProduct.lensTypePrices[option.value])
+                : "",
+            ]),
+          ),
+          coatingPrices: Object.fromEntries(
+            COATING_OPTIONS.map((option) => [
+              option.value,
+              loadedProduct.coatingPrices?.[option.value] !== undefined
+                ? String(loadedProduct.coatingPrices[option.value])
+                : "",
+            ]),
+          ),
         });
       } catch (err: any) {
         console.error("Load product error:", err);
@@ -107,6 +127,29 @@ const EditProduct = () => {
     setFieldErrors((previous) => ({ ...previous, [name]: undefined }));
   };
 
+  const handleLensPriceChange = (key: string, value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      lensTypePrices: { ...previous.lensTypePrices, [key]: value },
+    }));
+
+    setFieldErrors((previous) => ({ ...previous, lensTypePrices: undefined }));
+  };
+
+  const handleCoatingPriceChange = (key: string, value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      coatingPrices: { ...previous.coatingPrices, [key]: value },
+    }));
+
+    setFieldErrors((previous) => ({ ...previous, coatingPrices: undefined }));
+  };
+
+  const toPriceMap = (prices: Record<string, string>) =>
+    Object.fromEntries(
+      Object.entries(prices).map(([key, value]) => [key, Number(value) || 0]),
+    );
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -133,6 +176,8 @@ const EditProduct = () => {
         brand: form.brand.trim(),
         description: form.description.trim(),
         price: Number(form.price),
+        lensTypePrices: toPriceMap(form.lensTypePrices),
+        coatingPrices: toPriceMap(form.coatingPrices),
         stock: Number(form.stock),
         category: form.category,
         frameShape: form.frameShape,
@@ -200,6 +245,8 @@ const EditProduct = () => {
           form={form}
           errors={fieldErrors}
           onChange={handleChange}
+          onLensPriceChange={handleLensPriceChange}
+          onCoatingPriceChange={handleCoatingPriceChange}
         />
 
         {error && <div className="form-error">{error}</div>}

@@ -94,6 +94,17 @@ function formatValue(value) {
     .join(" ");
 }
 
+function getOptionPrice(product, group, value) {
+  const prices =
+    group === "lens" ? product?.lensTypePrices : product?.coatingPrices;
+
+  return Number(prices?.[value] || 0);
+}
+
+function formatPriceLabel(price) {
+  return price > 0 ? `₱${price.toLocaleString()}` : "Free";
+}
+
 export default function ProductDetailsScreen({ route, navigation }) {
   const { productId } = route.params;
 
@@ -479,6 +490,12 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   const selectedCoating = COATINGS.find((item) => item.value === coating);
 
+  const lensPrice = getOptionPrice(product, "lens", lensType);
+
+  const coatingPrice = getOptionPrice(product, "coating", coating);
+
+  const unitTotal = Number(product.price || 0) + lensPrice + coatingPrice;
+
   const hasTryOnImage = Boolean(product.tryOnImage);
 
   return (
@@ -615,6 +632,8 @@ export default function ProductDetailsScreen({ route, navigation }) {
         {LENS_TYPES.map((option) => {
           const selected = lensType === option.value;
 
+          const optionPrice = getOptionPrice(product, "lens", option.value);
+
           return (
             <Pressable
               key={option.value}
@@ -628,6 +647,15 @@ export default function ProductDetailsScreen({ route, navigation }) {
                 ]}
               >
                 {option.label}
+              </Text>
+
+              <Text
+                style={[
+                  styles.optionPrice,
+                  selected && styles.optionPriceSelected,
+                ]}
+              >
+                {formatPriceLabel(optionPrice)}
               </Text>
             </Pressable>
           );
@@ -728,6 +756,8 @@ export default function ProductDetailsScreen({ route, navigation }) {
         {COATINGS.map((option) => {
           const selected = coating === option.value;
 
+          const optionPrice = getOptionPrice(product, "coating", option.value);
+
           return (
             <Pressable
               key={option.value}
@@ -741,6 +771,15 @@ export default function ProductDetailsScreen({ route, navigation }) {
                 ]}
               >
                 {option.label}
+              </Text>
+
+              <Text
+                style={[
+                  styles.optionPrice,
+                  selected && styles.optionPriceSelected,
+                ]}
+              >
+                {formatPriceLabel(optionPrice)}
               </Text>
             </Pressable>
           );
@@ -794,9 +833,44 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
         <Text style={styles.summaryText}>Quantity: {quantity}</Text>
 
+        <View style={styles.summaryDivider} />
+
+        <View style={styles.summaryPriceRow}>
+          <Text style={styles.summaryPriceLabel}>Frame</Text>
+
+          <Text style={styles.summaryPriceValue}>
+            ₱{Number(product.price).toLocaleString()}
+          </Text>
+        </View>
+
+        {lensPrice > 0 ? (
+          <View style={styles.summaryPriceRow}>
+            <Text style={styles.summaryPriceLabel}>
+              Lens ({selectedLens?.label})
+            </Text>
+
+            <Text style={styles.summaryPriceValue}>
+              ₱{lensPrice.toLocaleString()}
+            </Text>
+          </View>
+        ) : null}
+
+        {coatingPrice > 0 ? (
+          <View style={styles.summaryPriceRow}>
+            <Text style={styles.summaryPriceLabel}>
+              Coating ({selectedCoating?.label})
+            </Text>
+
+            <Text style={styles.summaryPriceValue}>
+              ₱{coatingPrice.toLocaleString()}
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={styles.summaryDivider} />
+
         <Text style={styles.summaryPrice}>
-          Total frame price: ₱
-          {(Number(product.price) * quantity).toLocaleString()}
+          Total: ₱{(unitTotal * quantity).toLocaleString()}
         </Text>
       </View>
 
@@ -1113,6 +1187,16 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
+  optionPrice: {
+    fontSize: 10,
+    color: "#777777",
+    marginTop: 2,
+  },
+
+  optionPriceSelected: {
+    color: "#DDDDDD",
+  },
+
   prescriptionLoading: {
     alignItems: "center",
     paddingVertical: 20,
@@ -1256,6 +1340,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 5,
     color: "#555555",
+  },
+
+  summaryDivider: {
+    height: 1,
+    backgroundColor: "#E5E5E5",
+    marginVertical: 8,
+  },
+
+  summaryPriceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+
+  summaryPriceLabel: {
+    fontSize: 13,
+    color: "#555555",
+  },
+
+  summaryPriceValue: {
+    fontSize: 13,
+    color: "#333333",
+    fontWeight: "600",
   },
 
   summaryPrice: {

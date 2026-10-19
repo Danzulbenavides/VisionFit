@@ -157,6 +157,14 @@ export default function LoginScreen({ navigation, route }) {
             <Text style={styles.registerLink}>Register</Text>
           </Text>
         </Pressable>
+
+        <Pressable
+          style={styles.termsContainer}
+          onPress={() => navigation.navigate("TermsAndConditions")}
+          hitSlop={8}
+        >
+          <Text style={styles.terms}>Terms & Conditions</Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -269,6 +277,18 @@ const styles = StyleSheet.create({
   },
 
   registerLink: {
+    color: "#1D4ED8",
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+
+  termsContainer: {
+    alignItems: "center",
+    marginTop: 18,
+  },
+
+  terms: {
+    fontSize: 13,
     color: "#1D4ED8",
     fontWeight: "600",
     textDecorationLine: "underline",

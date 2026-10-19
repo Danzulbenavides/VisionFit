@@ -81,6 +81,25 @@ export const GENDER_OPTIONS = [
   { value: "UNISEX", label: "Unisex" },
 ];
 
+export const LENS_TYPE_OPTIONS = [
+  { value: "FRAME_ONLY", label: "Frame Only" },
+  { value: "STANDARD", label: "Standard" },
+  { value: "THIN", label: "Thin" },
+  { value: "PROGRESSIVE", label: "Progressive" },
+  { value: "PHOTOCHROMIC", label: "Photochromic" },
+  { value: "BLUE_LIGHT", label: "Blue Light" },
+  { value: "TRANSITIONS", label: "Transitions" },
+  { value: "DRIVING", label: "Driving" },
+];
+
+export const COATING_OPTIONS = [
+  { value: "NONE", label: "None" },
+  { value: "ANTI_REFLECTIVE", label: "Anti-Reflective" },
+  { value: "SUPER_HYDROPHOBIC", label: "Super Hydrophobic" },
+  { value: "UV_PROTECTION", label: "UV Protection" },
+  { value: "SCRATCH_RESISTANT", label: "Scratch Resistant" },
+];
+
 // Brand is a dropdown too. "OTHER" reveals a text box.
 export const BRAND_OPTIONS = [
   "VisionFit",
@@ -102,6 +121,8 @@ export interface ProductFormValues {
   material: string;
   genderCategory: string;
   imageUrl: string;
+  lensTypePrices: Record<string, string>;
+  coatingPrices: Record<string, string>;
 }
 
 // Highest price a product can be listed at (₱)
@@ -135,6 +156,33 @@ export const validateProductForm = (
   if (form.price.trim() === "") errors.price = "Price is required.";
   else if (!Number.isFinite(price) || price <= 0) errors.price = "Price must be greater than 0.";
   else if (price > MAX_PRICE) errors.price = `Price cannot be more than ₱${MAX_PRICE.toLocaleString()}.`;
+
+  const validatePriceMap = (
+    prices: Record<string, string> | undefined,
+    field: "lensTypePrices" | "coatingPrices",
+    label: string,
+  ) => {
+    if (!prices) return;
+
+    for (const rawValue of Object.values(prices)) {
+      if (rawValue.trim() === "") continue;
+
+      const value = Number(rawValue);
+
+      if (!Number.isFinite(value) || value < 0) {
+        errors[field] = `${label} prices must be 0 or higher.`;
+        break;
+      }
+
+      if (value > MAX_PRICE) {
+        errors[field] = `${label} prices cannot be more than ₱${MAX_PRICE.toLocaleString()}.`;
+        break;
+      }
+    }
+  };
+
+  validatePriceMap(form.lensTypePrices, "lensTypePrices", "Lens");
+  validatePriceMap(form.coatingPrices, "coatingPrices", "Coating");
 
   const stock = Number(form.stock);
   if (form.stock.trim() === "") errors.stock = "Stock is required.";

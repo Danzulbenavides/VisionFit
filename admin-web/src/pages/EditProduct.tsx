@@ -4,6 +4,35 @@ import { useNavigate, useParams } from "react-router-dom";
 import apiClient from "../api/client";
 import { updateProduct, type Product } from "../api/products";
 
+const LENS_TYPE_OPTIONS = [
+  { value: "FRAME_ONLY", label: "Frame Only" },
+  { value: "STANDARD", label: "Standard" },
+  { value: "THIN", label: "Thin" },
+  { value: "PROGRESSIVE", label: "Progressive" },
+  { value: "PHOTOCHROMIC", label: "Photochromic" },
+  { value: "BLUE_LIGHT", label: "Blue Light" },
+  { value: "TRANSITIONS", label: "Transitions" },
+  { value: "DRIVING", label: "Driving" },
+];
+
+const COATING_OPTIONS = [
+  { value: "NONE", label: "None" },
+  { value: "ANTI_REFLECTIVE", label: "Anti-Reflective" },
+  { value: "SUPER_HYDROPHOBIC", label: "Super Hydrophobic" },
+  { value: "UV_PROTECTION", label: "UV Protection" },
+  { value: "SCRATCH_RESISTANT", label: "Scratch Resistant" },
+];
+
+const DEFAULT_LENS_TYPE_PRICES = LENS_TYPE_OPTIONS.reduce(
+  (acc, option) => ({ ...acc, [option.value]: "" }),
+  {} as Record<string, string>,
+);
+
+const DEFAULT_COATING_PRICES = COATING_OPTIONS.reduce(
+  (acc, option) => ({ ...acc, [option.value]: "" }),
+  {} as Record<string, string>,
+);
+
 const EditProduct = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -21,6 +50,8 @@ const EditProduct = () => {
     material: "",
     genderCategory: "",
     imageUrl: "",
+    lensTypePrices: DEFAULT_LENS_TYPE_PRICES,
+    coatingPrices: DEFAULT_COATING_PRICES,
   });
 
   const [loading, setLoading] = useState(true);
@@ -67,6 +98,22 @@ const EditProduct = () => {
           material: loadedProduct.material || "",
           genderCategory: loadedProduct.genderCategory || "",
           imageUrl: loadedProduct.images?.[0] || "",
+          lensTypePrices: Object.fromEntries(
+            LENS_TYPE_OPTIONS.map((option) => [
+              option.value,
+              loadedProduct.lensTypePrices?.[option.value] !== undefined
+                ? String(loadedProduct.lensTypePrices[option.value])
+                : "",
+            ]),
+          ),
+          coatingPrices: Object.fromEntries(
+            COATING_OPTIONS.map((option) => [
+              option.value,
+              loadedProduct.coatingPrices?.[option.value] !== undefined
+                ? String(loadedProduct.coatingPrices[option.value])
+                : "",
+            ]),
+          ),
         });
       } catch (err: any) {
         console.error("Load product error:", err);
@@ -98,6 +145,25 @@ const EditProduct = () => {
     }));
   };
 
+  const handleLensPriceChange = (key: string, value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      lensTypePrices: { ...previous.lensTypePrices, [key]: value },
+    }));
+  };
+
+  const handleCoatingPriceChange = (key: string, value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      coatingPrices: { ...previous.coatingPrices, [key]: value },
+    }));
+  };
+
+  const toPriceMap = (prices: Record<string, string>) =>
+    Object.fromEntries(
+      Object.entries(prices).map(([key, value]) => [key, Number(value) || 0]),
+    );
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -116,6 +182,8 @@ const EditProduct = () => {
         brand: form.brand.trim(),
         description: form.description.trim(),
         price: Number(form.price),
+        lensTypePrices: toPriceMap(form.lensTypePrices),
+        coatingPrices: toPriceMap(form.coatingPrices),
         stock: Number(form.stock),
         category: form.category,
         frameShape: form.frameShape,
@@ -245,6 +313,62 @@ const EditProduct = () => {
               required
             />
           </div>
+        </div>
+
+        <div className="form-group">
+          <label>Lens Type Prices (₱)</label>
+
+          <div className="form-row">
+            {LENS_TYPE_OPTIONS.map((option) => (
+              <div className="form-group" key={option.value}>
+                <label>{option.label}</label>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="10"
+                  placeholder="0"
+                  value={form.lensTypePrices[option.value]}
+                  onChange={(e) =>
+                    handleLensPriceChange(option.value, e.target.value)
+                  }
+                />
+              </div>
+            ))}
+          </div>
+
+          <small>
+            Added to the frame price when this lens type is selected. Leave
+            blank or 0 for free.
+          </small>
+        </div>
+
+        <div className="form-group">
+          <label>Coating Prices (₱)</label>
+
+          <div className="form-row">
+            {COATING_OPTIONS.map((option) => (
+              <div className="form-group" key={option.value}>
+                <label>{option.label}</label>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="10"
+                  placeholder="0"
+                  value={form.coatingPrices[option.value]}
+                  onChange={(e) =>
+                    handleCoatingPriceChange(option.value, e.target.value)
+                  }
+                />
+              </div>
+            ))}
+          </div>
+
+          <small>
+            Added to the frame price when this coating is selected. Leave blank
+            or 0 for free.
+          </small>
         </div>
 
         <div className="form-row">

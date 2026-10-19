@@ -5,10 +5,11 @@ import { API_URL } from "../config";
 
 const apiClient = axios.create({
     baseURL: API_URL,
-    timeout: 10000,
+    timeout: 30000,
     headers: {
         "Content-Type": "application/json",
     },
+
 });
 
 apiClient.interceptors.request.use(
@@ -29,7 +30,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
-        const serverMessage = error.response?.data?.error?.message;
+        const serverMessage = error.response ? error.response.data ? error.response.data.error ? error.response.data.error.message : null : null : null;
 
         if (serverMessage) {
             error.message = serverMessage;

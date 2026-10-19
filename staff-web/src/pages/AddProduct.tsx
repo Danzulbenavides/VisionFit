@@ -8,6 +8,30 @@ import {
   type ProductFormValues,
 } from "../utils/validators";
 
+const LENS_PRICE_DEFAULTS: Record<string, string> = {
+  FRAME_ONLY: "0",
+  STANDARD: "500",
+  THIN: "800",
+  PROGRESSIVE: "1500",
+  PHOTOCHROMIC: "1200",
+  BLUE_LIGHT: "700",
+  TRANSITIONS: "1200",
+  DRIVING: "900",
+};
+
+const COATING_PRICE_DEFAULTS: Record<string, string> = {
+  NONE: "0",
+  ANTI_REFLECTIVE: "300",
+  SUPER_HYDROPHOBIC: "500",
+  UV_PROTECTION: "200",
+  SCRATCH_RESISTANT: "150",
+};
+
+const toPriceMap = (prices: Record<string, string>) =>
+  Object.fromEntries(
+    Object.entries(prices).map(([key, value]) => [key, Number(value) || 0]),
+  );
+
 const AddProduct = () => {
   const navigate = useNavigate();
 
@@ -22,6 +46,8 @@ const AddProduct = () => {
     material: "",
     genderCategory: "",
     imageUrl: "",
+    lensTypePrices: { ...LENS_PRICE_DEFAULTS },
+    coatingPrices: { ...COATING_PRICE_DEFAULTS },
   });
 
   const [loading, setLoading] = useState(false);
@@ -42,6 +68,24 @@ const AddProduct = () => {
     }));
 
     setFieldErrors((previous) => ({ ...previous, [name]: undefined }));
+  };
+
+  const handleLensPriceChange = (key: string, value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      lensTypePrices: { ...previous.lensTypePrices, [key]: value },
+    }));
+
+    setFieldErrors((previous) => ({ ...previous, lensTypePrices: undefined }));
+  };
+
+  const handleCoatingPriceChange = (key: string, value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      coatingPrices: { ...previous.coatingPrices, [key]: value },
+    }));
+
+    setFieldErrors((previous) => ({ ...previous, coatingPrices: undefined }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,6 +109,8 @@ const AddProduct = () => {
         brand: form.brand.trim(),
         description: form.description.trim(),
         price: Number(form.price),
+        lensTypePrices: toPriceMap(form.lensTypePrices),
+        coatingPrices: toPriceMap(form.coatingPrices),
         stock: Number(form.stock),
         category: form.category,
         frameShape: form.frameShape,
@@ -120,6 +166,8 @@ const AddProduct = () => {
           form={form}
           errors={fieldErrors}
           onChange={handleChange}
+          onLensPriceChange={handleLensPriceChange}
+          onCoatingPriceChange={handleCoatingPriceChange}
         />
 
         {error && <div className="form-error">{error}</div>}

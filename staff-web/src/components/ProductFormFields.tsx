@@ -8,6 +8,8 @@ import {
   FRAME_SHAPE_OPTIONS,
   GENDER_OPTIONS,
   MATERIAL_OPTIONS,
+  LENS_TYPE_OPTIONS,
+  COATING_OPTIONS,
   type FormErrors,
   type ProductFormValues,
 } from "../utils/validators";
@@ -23,6 +25,8 @@ interface Props {
   onChange: (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => void;
+  onLensPriceChange: (key: string, value: string) => void;
+  onCoatingPriceChange: (key: string, value: string) => void;
 }
 
 function RequiredMark() {
@@ -66,7 +70,13 @@ function Select({
   );
 }
 
-export default function ProductFormFields({ form, errors, onChange }: Props) {
+export default function ProductFormFields({
+  form,
+  errors,
+  onChange,
+  onLensPriceChange,
+  onCoatingPriceChange,
+}: Props) {
   // Brand is a dropdown. A brand already saved on a product that is not in
   // the list is still shown so editing never wipes it.
   const brandOptions = [...BRAND_OPTIONS];
@@ -164,6 +174,68 @@ export default function ProductFormFields({ form, errors, onChange }: Props) {
 
           {errors.stock ? <small className="field-error">{errors.stock}</small> : null}
         </div>
+      </div>
+
+      <div className={errors.lensTypePrices ? "form-group form-group-error" : "form-group"}>
+        <label>Lens Type Prices (₱)</label>
+
+        <div className="form-row">
+          {LENS_TYPE_OPTIONS.map((option) => (
+            <div className="form-group" key={option.value}>
+              <label>{option.label}</label>
+
+              <input
+                type="number"
+                min="0"
+                max={MAX_PRICE}
+                step="10"
+                placeholder="0"
+                value={form.lensTypePrices[option.value] ?? ""}
+                onChange={(e) => onLensPriceChange(option.value, e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
+
+        {errors.lensTypePrices ? (
+          <small className="field-error">{errors.lensTypePrices}</small>
+        ) : (
+          <small>
+            Added to the frame price when this lens type is selected. Leave
+            blank or 0 for free.
+          </small>
+        )}
+      </div>
+
+      <div className={errors.coatingPrices ? "form-group form-group-error" : "form-group"}>
+        <label>Coating Prices (₱)</label>
+
+        <div className="form-row">
+          {COATING_OPTIONS.map((option) => (
+            <div className="form-group" key={option.value}>
+              <label>{option.label}</label>
+
+              <input
+                type="number"
+                min="0"
+                max={MAX_PRICE}
+                step="10"
+                placeholder="0"
+                value={form.coatingPrices[option.value] ?? ""}
+                onChange={(e) => onCoatingPriceChange(option.value, e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
+
+        {errors.coatingPrices ? (
+          <small className="field-error">{errors.coatingPrices}</small>
+        ) : (
+          <small>
+            Added to the frame price when this coating is selected. Leave blank
+            or 0 for free.
+          </small>
+        )}
       </div>
 
       <div className="form-row">

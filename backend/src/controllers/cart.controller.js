@@ -6,6 +6,11 @@ import Prescription from "../models/Prescription.js";
 
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import {
+  LENS_TYPES,
+  COATINGS,
+  calculateUnitPrice,
+} from "../utils/lensPricing.js";
 
 // =========================================
 // GET CART
@@ -83,33 +88,15 @@ export const addCartItem = asyncHandler(async (req, res) => {
   // Validate lens type
   // -----------------------------------------
 
-  const allowedLensTypes = [
-    "FRAME_ONLY",
-    "STANDARD",
-    "THIN",
-    "PROGRESSIVE",
-    "PHOTOCHROMIC",
-    "BLUE_LIGHT",
-    "TRANSITIONS",
-    "DRIVING",
-  ];
-
-  if (!allowedLensTypes.includes(lensType)) {
+  if (!LENS_TYPES.includes(lensType)) {
     throw new ApiError(400, "Invalid lens type");
   }
 
   // -----------------------------------------
   // Validate coating
   // -----------------------------------------
-  const allowedCoatings = [
-    "NONE",
-    "ANTI_REFLECTIVE",
-    "SUPER_HYDROPHOBIC",
-    "UV_PROTECTION",
-    "SCRATCH_RESISTANT",
-  ];
 
-  if (!allowedCoatings.includes(coating)) {
+  if (!COATINGS.includes(coating)) {
     throw new ApiError(400, "Invalid coating");
   }
 
@@ -187,6 +174,12 @@ export const addCartItem = asyncHandler(async (req, res) => {
       String(item.prescriptionId) === String(prescriptionId),
   );
 
+  // -----------------------------------------
+  // Price = frame + lens type + coating
+  // -----------------------------------------
+
+  const pricing = calculateUnitPrice(product, lensType, coating);
+
   if (existingItem) {
     const newQuantity = existingItem.quantity + quantity;
 
@@ -196,8 +189,11 @@ export const addCartItem = asyncHandler(async (req, res) => {
 
     existingItem.quantity = newQuantity;
 
-    // Always use current product price
-    existingItem.unitPrice = product.price;
+    // Always use current product pricing
+    existingItem.framePrice = pricing.framePrice;
+    existingItem.lensPrice = pricing.lensPrice;
+    existingItem.coatingPrice = pricing.coatingPrice;
+    existingItem.unitPrice = pricing.unitPrice;
   } else {
     cart.items.push({
       productId: product._id,
@@ -205,7 +201,10 @@ export const addCartItem = asyncHandler(async (req, res) => {
       lensType,
       prescriptionId,
       coating,
-      unitPrice: product.price,
+      framePrice: pricing.framePrice,
+      lensPrice: pricing.lensPrice,
+      coatingPrice: pricing.coatingPrice,
+      unitPrice: pricing.unitPrice,
     });
   }
 
@@ -250,39 +249,16 @@ export const updateCartItem = asyncHandler(async (req, res) => {
   // Validate lens type
   // -----------------------------------------
 
-  if (lensType !== undefined) {
-    const allowedLensTypes = [
-      "FRAME_ONLY",
-      "STANDARD",
-      "THIN",
-      "PROGRESSIVE",
-      "PHOTOCHROMIC",
-      "BLUE_LIGHT",
-      "TRANSITIONS",
-      "DRIVING",
-    ];
-
-    if (!allowedLensTypes.includes(lensType)) {
-      throw new ApiError(400, "Invalid lens type");
-    }
+  if (lensType !== undefined && !LENS_TYPES.includes(lensType)) {
+    throw new ApiError(400, "Invalid lens type");
   }
 
   // -----------------------------------------
   // Validate coating
   // -----------------------------------------
 
-  if (coating !== undefined) {
-    const allowedCoatings = [
-      "NONE",
-      "ANTI_REFLECTIVE",
-      "SUPER_HYDROPHOBIC",
-      "UV_PROTECTION",
-      "SCRATCH_RESISTANT",
-    ];
-
-    if (!allowedCoatings.includes(coating)) {
-      throw new ApiError(400, "Invalid coating");
-    }
+  if (coating !== undefined && !COATINGS.includes(coating)) {
+    throw new ApiError(400, "Invalid coating");
   }
 
   // -----------------------------------------
@@ -371,8 +347,13 @@ export const updateCartItem = asyncHandler(async (req, res) => {
     item.prescriptionId = null;
   }
 
-  // Always refresh unit price
-  item.unitPrice = product.price;
+  // Always refresh pricing from current product
+  const pricing = calculateUnitPrice(product, item.lensType, item.coating);
+
+  item.framePrice = pricing.framePrice;
+  item.lensPrice = pricing.lensPrice;
+  item.coatingPrice = pricing.coatingPrice;
+  item.unitPrice = pricing.unitPrice;
 
   await cart.save();
 

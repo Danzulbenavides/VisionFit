@@ -345,6 +345,31 @@ export default function CartScreen({ navigation }) {
                     </Text>
                   </View>
 
+                  {Number(item?.lensPrice) > 0 ||
+                  Number(item?.coatingPrice) > 0 ? (
+                    <View style={s.priceBreakdown}>
+                      {Number(item?.framePrice) > 0 ? (
+                        <Text style={s.breakdownLine}>
+                          Frame: ₱
+                          {Number(item.framePrice).toLocaleString()}
+                        </Text>
+                      ) : null}
+
+                      {Number(item?.lensPrice) > 0 ? (
+                        <Text style={s.breakdownLine}>
+                          Lens: ₱{Number(item.lensPrice).toLocaleString()}
+                        </Text>
+                      ) : null}
+
+                      {Number(item?.coatingPrice) > 0 ? (
+                        <Text style={s.breakdownLine}>
+                          Coating: ₱
+                          {Number(item.coatingPrice).toLocaleString()}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+
                   <View style={s.itemBottomRow}>
                     <Text style={s.itemPrice}>
                       ₱{Number(item?.unitPrice || 0).toLocaleString()}
@@ -534,6 +559,17 @@ const s = StyleSheet.create({
     paddingHorizontal: 7,
     borderRadius: 5,
     marginBottom: 4,
+  },
+
+  priceBreakdown: {
+    marginTop: 2,
+    marginBottom: 2,
+    gap: 2,
+  },
+
+  breakdownLine: {
+    fontSize: 10,
+    color: "#777777",
   },
 
   itemBottomRow: {

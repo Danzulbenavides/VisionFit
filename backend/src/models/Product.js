@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
 
+import {
+  DEFAULT_LENS_TYPE_PRICES,
+  DEFAULT_COATING_PRICES,
+} from "../utils/lensPricing.js";
+
 const { Schema, model, models } = mongoose;
 
 // =========================================
@@ -75,6 +80,115 @@ const prescriptionCompatibilitySchema = new Schema(
 );
 
 // =========================================
+// LENS TYPE PRICES
+// =========================================
+
+const lensTypePricesSchema = new Schema(
+  {
+    FRAME_ONLY: {
+      type: Number,
+      min: 0,
+      max: [50000, "Lens price cannot be more than ₱50,000."],
+      default: DEFAULT_LENS_TYPE_PRICES.FRAME_ONLY,
+    },
+
+    STANDARD: {
+      type: Number,
+      min: 0,
+      max: [50000, "Lens price cannot be more than ₱50,000."],
+      default: DEFAULT_LENS_TYPE_PRICES.STANDARD,
+    },
+
+    THIN: {
+      type: Number,
+      min: 0,
+      max: [50000, "Lens price cannot be more than ₱50,000."],
+      default: DEFAULT_LENS_TYPE_PRICES.THIN,
+    },
+
+    PROGRESSIVE: {
+      type: Number,
+      min: 0,
+      max: [50000, "Lens price cannot be more than ₱50,000."],
+      default: DEFAULT_LENS_TYPE_PRICES.PROGRESSIVE,
+    },
+
+    PHOTOCHROMIC: {
+      type: Number,
+      min: 0,
+      max: [50000, "Lens price cannot be more than ₱50,000."],
+      default: DEFAULT_LENS_TYPE_PRICES.PHOTOCHROMIC,
+    },
+
+    BLUE_LIGHT: {
+      type: Number,
+      min: 0,
+      max: [50000, "Lens price cannot be more than ₱50,000."],
+      default: DEFAULT_LENS_TYPE_PRICES.BLUE_LIGHT,
+    },
+
+    TRANSITIONS: {
+      type: Number,
+      min: 0,
+      max: [50000, "Lens price cannot be more than ₱50,000."],
+      default: DEFAULT_LENS_TYPE_PRICES.TRANSITIONS,
+    },
+
+    DRIVING: {
+      type: Number,
+      min: 0,
+      max: [50000, "Lens price cannot be more than ₱50,000."],
+      default: DEFAULT_LENS_TYPE_PRICES.DRIVING,
+    },
+  },
+  { _id: false },
+);
+
+// =========================================
+// COATING PRICES
+// =========================================
+
+const coatingPricesSchema = new Schema(
+  {
+    NONE: {
+      type: Number,
+      min: 0,
+      max: [50000, "Coating price cannot be more than ₱50,000."],
+      default: DEFAULT_COATING_PRICES.NONE,
+    },
+
+    ANTI_REFLECTIVE: {
+      type: Number,
+      min: 0,
+      max: [50000, "Coating price cannot be more than ₱50,000."],
+      default: DEFAULT_COATING_PRICES.ANTI_REFLECTIVE,
+    },
+
+    SUPER_HYDROPHOBIC: {
+      type: Number,
+      min: 0,
+      max: [50000, "Coating price cannot be more than ₱50,000."],
+      default: DEFAULT_COATING_PRICES.SUPER_HYDROPHOBIC,
+    },
+
+    UV_PROTECTION: {
+      type: Number,
+      min: 0,
+      max: [50000, "Coating price cannot be more than ₱50,000."],
+      default: DEFAULT_COATING_PRICES.UV_PROTECTION,
+    },
+
+    SCRATCH_RESISTANT: {
+      type: Number,
+      min: 0,
+      max: [50000, "Coating price cannot be more than ₱50,000."],
+      default: DEFAULT_COATING_PRICES.SCRATCH_RESISTANT,
+    },
+  },
+  { _id: false },
+);
+
+// =========================================
 // PRODUCT SCHEMA
 // =========================================
 
@@ -110,6 +224,20 @@ const productSchema = new Schema(
       required: true,
       min: 0,
       max: [50000, "Price cannot be more than ₱50,000."],
+    },
+
+    // =====================================
+    // LENS TYPE & COATING PRICES
+    // =====================================
+
+    lensTypePrices: {
+      type: lensTypePricesSchema,
+      default: () => ({}),
+    },
+
+    coatingPrices: {
+      type: coatingPricesSchema,
+      default: () => ({}),
     },
 
     // =====================================

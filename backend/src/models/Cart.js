@@ -53,6 +53,24 @@ const cartItemSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+
+    framePrice: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    lensPrice: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    coatingPrice: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
   },
   {
     _id: false,

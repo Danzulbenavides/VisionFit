@@ -365,8 +365,14 @@ export default function CheckoutScreen({ navigation }) {
                   </Text>
 
                   <Text style={s.itemDetails}>
-                    {formatValue(item?.lensType)} lenses ·{" "}
-                    {formatValue(item?.coating)}
+                    {formatValue(item?.lensType)} lenses
+                    {Number(item?.lensPrice) > 0
+                      ? ` (₱${Number(item.lensPrice).toLocaleString()})`
+                      : ""}{" "}
+                    · {formatValue(item?.coating)}
+                    {Number(item?.coatingPrice) > 0
+                      ? ` (₱${Number(item.coatingPrice).toLocaleString()})`
+                      : ""}
                   </Text>
                 </View>
 

@@ -246,6 +246,8 @@ export const updateProduct = async (req, res) => {
       "brand",
       "description",
       "price",
+      "lensTypePrices",
+      "coatingPrices",
       "stock",
       "category",
       "frameShape",

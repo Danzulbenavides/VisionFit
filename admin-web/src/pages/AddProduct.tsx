@@ -2,6 +2,44 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { createProduct } from "../api/products";
 
+const LENS_TYPE_OPTIONS = [
+  { value: "FRAME_ONLY", label: "Frame Only" },
+  { value: "STANDARD", label: "Standard" },
+  { value: "THIN", label: "Thin" },
+  { value: "PROGRESSIVE", label: "Progressive" },
+  { value: "PHOTOCHROMIC", label: "Photochromic" },
+  { value: "BLUE_LIGHT", label: "Blue Light" },
+  { value: "TRANSITIONS", label: "Transitions" },
+  { value: "DRIVING", label: "Driving" },
+];
+
+const COATING_OPTIONS = [
+  { value: "NONE", label: "None" },
+  { value: "ANTI_REFLECTIVE", label: "Anti-Reflective" },
+  { value: "SUPER_HYDROPHOBIC", label: "Super Hydrophobic" },
+  { value: "UV_PROTECTION", label: "UV Protection" },
+  { value: "SCRATCH_RESISTANT", label: "Scratch Resistant" },
+];
+
+const LENS_PRICE_DEFAULTS: Record<string, string> = {
+  FRAME_ONLY: "0",
+  STANDARD: "500",
+  THIN: "800",
+  PROGRESSIVE: "1500",
+  PHOTOCHROMIC: "1200",
+  BLUE_LIGHT: "700",
+  TRANSITIONS: "1200",
+  DRIVING: "900",
+};
+
+const COATING_PRICE_DEFAULTS: Record<string, string> = {
+  NONE: "0",
+  ANTI_REFLECTIVE: "300",
+  SUPER_HYDROPHOBIC: "500",
+  UV_PROTECTION: "200",
+  SCRATCH_RESISTANT: "150",
+};
+
 const AddProduct = () => {
   const navigate = useNavigate();
 
@@ -16,6 +54,8 @@ const AddProduct = () => {
     material: "",
     genderCategory: "",
     imageUrl: "",
+    lensTypePrices: { ...LENS_PRICE_DEFAULTS },
+    coatingPrices: { ...COATING_PRICE_DEFAULTS },
   });
 
   const [loading, setLoading] = useState(false);
@@ -35,6 +75,25 @@ const AddProduct = () => {
     }));
   };
 
+  const handleLensPriceChange = (key: string, value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      lensTypePrices: { ...previous.lensTypePrices, [key]: value },
+    }));
+  };
+
+  const handleCoatingPriceChange = (key: string, value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      coatingPrices: { ...previous.coatingPrices, [key]: value },
+    }));
+  };
+
+  const toPriceMap = (prices: Record<string, string>) =>
+    Object.fromEntries(
+      Object.entries(prices).map(([key, value]) => [key, Number(value) || 0]),
+    );
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -48,6 +107,8 @@ const AddProduct = () => {
         brand: form.brand.trim(),
         description: form.description.trim(),
         price: Number(form.price),
+        lensTypePrices: toPriceMap(form.lensTypePrices),
+        coatingPrices: toPriceMap(form.coatingPrices),
         stock: Number(form.stock),
         category: form.category,
         frameShape: form.frameShape,
@@ -152,6 +213,62 @@ const AddProduct = () => {
               required
             />
           </div>
+        </div>
+
+        <div className="form-group">
+          <label>Lens Type Prices (₱)</label>
+
+          <div className="form-row">
+            {LENS_TYPE_OPTIONS.map((option) => (
+              <div className="form-group" key={option.value}>
+                <label>{option.label}</label>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="10"
+                  placeholder="0"
+                  value={form.lensTypePrices[option.value]}
+                  onChange={(e) =>
+                    handleLensPriceChange(option.value, e.target.value)
+                  }
+                />
+              </div>
+            ))}
+          </div>
+
+          <small>
+            Added to the frame price when this lens type is selected. Leave
+            blank or 0 for free.
+          </small>
+        </div>
+
+        <div className="form-group">
+          <label>Coating Prices (₱)</label>
+
+          <div className="form-row">
+            {COATING_OPTIONS.map((option) => (
+              <div className="form-group" key={option.value}>
+                <label>{option.label}</label>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="10"
+                  placeholder="0"
+                  value={form.coatingPrices[option.value]}
+                  onChange={(e) =>
+                    handleCoatingPriceChange(option.value, e.target.value)
+                  }
+                />
+              </div>
+            ))}
+          </div>
+
+          <small>
+            Added to the frame price when this coating is selected. Leave blank
+            or 0 for free.
+          </small>
         </div>
 
         <div className="form-row">

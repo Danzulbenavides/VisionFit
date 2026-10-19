@@ -6,6 +6,8 @@ export interface Product {
   brand?: string;
   description?: string;
   price?: number;
+  lensTypePrices?: Record<string, number>;
+  coatingPrices?: Record<string, number>;
   stock?: number;
   category?: string;
   frameShape?: string;
@@ -80,6 +82,8 @@ export interface CreateProductData {
   brand: string;
   description: string;
   price: number;
+  lensTypePrices?: Record<string, number>;
+  coatingPrices?: Record<string, number>;
   stock: number;
   category: string;
   frameShape: string;
@@ -100,6 +104,8 @@ export interface UpdateProductData {
   brand?: string;
   description?: string;
   price?: number;
+  lensTypePrices?: Record<string, number>;
+  coatingPrices?: Record<string, number>;
   stock?: number;
   category?: string;
   frameShape?: string;

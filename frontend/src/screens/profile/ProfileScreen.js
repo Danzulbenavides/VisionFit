@@ -12,7 +12,7 @@ const ACTIONS = [
   ['location-outline', 'Addresses'],
   ['star-outline', 'Reviews'],
   ['receipt-outline', 'Receipts'],
-  ['document-text-outline', 'Terms & policies'],
+  ['document-text-outline', 'Terms & Conditions'],
   ['help-circle-outline', 'Help center'],
 ];
 
@@ -120,7 +120,9 @@ export default function ProfileScreen({ navigation }) {
               onPress={() =>
                 label === 'Addresses'
                   ? navigation.navigate('AddAddress')
-                  : Alert.alert(label, `${label} feature coming soon`)
+                  : label === 'Terms & Conditions'
+                    ? navigation.navigate('TermsAndConditions')
+                    : Alert.alert(label, `${label} feature coming soon`)
               }
             >
               <View style={s.actionIcon}>

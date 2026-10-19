@@ -41,6 +41,8 @@ import VirtualTryOnScreen from "../screens/VirtualTryOnScreen";
 import EducationalHubScreen from "../screens/educational/EducationalHubScreen";
 import EducationalLessonScreen from "../screens/educational/EducationalLessonScreen";
 
+import TermsAndConditionsScreen from "../screens/legal/TermsAndConditionsScreen";
+
 import NotificationsScreen from "../screens/notifications/NotificationsScreen";
 import NotificationBanner from "../components/NotificationBanner";
 
@@ -83,6 +85,15 @@ function AuthStack() {
         component={ForgotPasswordScreen}
         options={{
           headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="TermsAndConditions"
+        component={TermsAndConditionsScreen}
+        options={{
+          headerShown: true,
+          title: "Terms & Conditions",
         }}
       />
     </Stack.Navigator>
@@ -306,6 +317,12 @@ function AppStack() {
         name="EducationalLesson"
         component={EducationalLessonScreen}
         options={{ title: "Guide" }}
+      />
+
+      <Stack.Screen
+        name="TermsAndConditions"
+        component={TermsAndConditionsScreen}
+        options={{ title: "Terms & Conditions" }}
       />
     </Stack.Navigator>
   );

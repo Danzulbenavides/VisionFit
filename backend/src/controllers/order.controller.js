@@ -8,6 +8,7 @@ import Address from "../models/Address.js";
 
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { calculateUnitPrice } from "../utils/lensPricing.js";
 import {
   notifyUser,
   notifyRoles,
@@ -198,9 +199,16 @@ export const createOrder = asyncHandler(async (req, res) => {
 
         // -----------------------------------------
         // Current server price
+        // frame + lens type + coating
         // -----------------------------------------
 
-        const unitPrice = product.price;
+        const pricing = calculateUnitPrice(
+          product,
+          cartItem.lensType,
+          cartItem.coating,
+        );
+
+        const unitPrice = pricing.unitPrice;
 
         const itemSubtotal = unitPrice * cartItem.quantity;
 
@@ -226,6 +234,12 @@ export const createOrder = asyncHandler(async (req, res) => {
           prescriptionSnapshot,
 
           coating: cartItem.coating,
+
+          framePrice: pricing.framePrice,
+
+          lensPrice: pricing.lensPrice,
+
+          coatingPrice: pricing.coatingPrice,
         });
       }
       // -----------------------------------------
