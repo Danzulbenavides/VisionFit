@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { createProduct } from "../api/products";
+import { createProduct, uploadProductImage } from "../api/products";
 import ProductFormFields from "../components/ProductFormFields";
 import {
   validateProductForm,
@@ -51,15 +51,16 @@ const AddProduct = () => {
     coatingPrices: { ...COATING_PRICE_DEFAULTS },
   });
 
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<FormErrors<ProductFormValues>>({});
+  const [fieldErrors, setFieldErrors] = useState<FormErrors<ProductFormValues>>(
+    {},
+  );
   const [success, setSuccess] = useState("");
 
   const handleChange = (
-    e: ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
 
@@ -69,6 +70,22 @@ const AddProduct = () => {
     }));
 
     setFieldErrors((previous) => ({ ...previous, [name]: undefined }));
+  };
+
+  const handleImageFileChange = (file: File | null) => {
+    if (
+      file &&
+      !["image/jpeg", "image/png", "image/webp"].includes(file.type)
+    ) {
+      setError("Choose a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (file && file.size > 5 * 1024 * 1024) {
+      setError("The image must be 5 MB or smaller.");
+      return;
+    }
+    setError("");
+    setImageFile(file);
   };
 
   const handleLensPriceChange = (key: string, value: string) => {
@@ -105,6 +122,11 @@ const AddProduct = () => {
     setSuccess("");
 
     try {
+      const uploadedImage = imageFile
+        ? await uploadProductImage(imageFile)
+        : null;
+      const imageUrl = uploadedImage?.url || form.imageUrl.trim();
+
       await createProduct({
         name: form.name.trim(),
         brand: form.brand.trim(),
@@ -117,7 +139,7 @@ const AddProduct = () => {
         frameShape: form.frameShape,
         material: form.material,
         genderCategory: form.genderCategory,
-        images: form.imageUrl.trim() ? [form.imageUrl.trim()] : [],
+        images: imageUrl ? [imageUrl] : [],
       });
 
       setSuccess("Product created successfully.");
@@ -132,10 +154,21 @@ const AddProduct = () => {
       if (err !== null && typeof err === "object") {
         if ("response" in err && err.response !== null) {
           const response = err.response;
-          if (response !== null && typeof response === "object" && "data" in response && response.data !== null) {
+          if (
+            response !== null &&
+            typeof response === "object" &&
+            "data" in response &&
+            response.data !== null
+          ) {
             const data = response.data;
             if (data !== null && typeof data === "object") {
-              if ("error" in data && data.error !== null && typeof data.error === "object" && "message" in data.error && data.error.message !== null) {
+              if (
+                "error" in data &&
+                data.error !== null &&
+                typeof data.error === "object" &&
+                "message" in data.error &&
+                data.error.message !== null
+              ) {
                 errorMessage = String(data.error.message);
               } else if ("message" in data && data.message !== null) {
                 errorMessage = String(data.message);
@@ -169,6 +202,8 @@ const AddProduct = () => {
           onChange={handleChange}
           onLensPriceChange={handleLensPriceChange}
           onCoatingPriceChange={handleCoatingPriceChange}
+          imageFile={imageFile}
+          onImageFileChange={handleImageFileChange}
         />
 
         {error && <div className="form-error">{error}</div>}

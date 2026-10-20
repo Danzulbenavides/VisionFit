@@ -127,3 +127,21 @@ export const deleteProduct = async (id: string): Promise<Product> => {
 
   return response.data.data;
 };
+
+export interface UploadedProductImage {
+  url: string;
+  publicId: string;
+}
+
+export const uploadProductImage = async (
+  file: File,
+): Promise<UploadedProductImage> => {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await apiClient.post("/products/upload-image", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+  return response.data.data as UploadedProductImage;
+};

@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 
 import {
   MAX_PRICE,
@@ -27,6 +27,8 @@ interface Props {
   ) => void;
   onLensPriceChange: (key: string, value: string) => void;
   onCoatingPriceChange: (key: string, value: string) => void;
+  imageFile: File | null;
+  onImageFileChange: (file: File | null) => void;
 }
 
 function RequiredMark() {
@@ -75,7 +77,22 @@ export default function ProductFormFields({
   onChange,
   onLensPriceChange,
   onCoatingPriceChange,
+  imageFile,
+  onImageFileChange,
 }: Props) {
+  const [previewUrl, setPreviewUrl] = useState(form.imageUrl);
+
+  useEffect(() => {
+    if (!imageFile) {
+      setPreviewUrl(form.imageUrl);
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(imageFile);
+    setPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [imageFile, form.imageUrl]);
+
   // Brand is a dropdown. A brand already saved on a product that is not in
   // the list is still shown so editing never wipes it.
   const brandOptions = [...BRAND_OPTIONS];
@@ -86,10 +103,12 @@ export default function ProductFormFields({
 
   return (
     <>
-    <p className="form-required-note">
-  <span className="required-mark">*</span> Required field
-</p>
-      <div className={errors.name ? "form-group form-group-error" : "form-group"}>
+      <p className="form-required-note">
+        <span className="required-mark">*</span> Required field
+      </p>
+      <div
+        className={errors.name ? "form-group form-group-error" : "form-group"}
+      >
         <label>
           Product Name
           <RequiredMark />
@@ -103,7 +122,9 @@ export default function ProductFormFields({
           maxLength={MAX_NAME_LENGTH}
         />
 
-        {errors.name ? <small className="field-error">{errors.name}</small> : null}
+        {errors.name ? (
+          <small className="field-error">{errors.name}</small>
+        ) : null}
       </div>
 
       <Select
@@ -117,7 +138,11 @@ export default function ProductFormFields({
         onChange={onChange}
       />
 
-      <div className={errors.description ? "form-group form-group-error" : "form-group"}>
+      <div
+        className={
+          errors.description ? "form-group form-group-error" : "form-group"
+        }
+      >
         <label>
           Description
           <RequiredMark />
@@ -137,7 +162,11 @@ export default function ProductFormFields({
       </div>
 
       <div className="form-row">
-        <div className={errors.price ? "form-group form-group-error" : "form-group"}>
+        <div
+          className={
+            errors.price ? "form-group form-group-error" : "form-group"
+          }
+        >
           <label>
             Price (₱)
             <RequiredMark />
@@ -153,10 +182,16 @@ export default function ProductFormFields({
             step="0.01"
           />
 
-          {errors.price ? <small className="field-error">{errors.price}</small> : null}
+          {errors.price ? (
+            <small className="field-error">{errors.price}</small>
+          ) : null}
         </div>
 
-        <div className={errors.stock ? "form-group form-group-error" : "form-group"}>
+        <div
+          className={
+            errors.stock ? "form-group form-group-error" : "form-group"
+          }
+        >
           <label>
             Stock
             <RequiredMark />
@@ -171,11 +206,17 @@ export default function ProductFormFields({
             step="1"
           />
 
-          {errors.stock ? <small className="field-error">{errors.stock}</small> : null}
+          {errors.stock ? (
+            <small className="field-error">{errors.stock}</small>
+          ) : null}
         </div>
       </div>
 
-      <div className={errors.lensTypePrices ? "form-group form-group-error" : "form-group"}>
+      <div
+        className={
+          errors.lensTypePrices ? "form-group form-group-error" : "form-group"
+        }
+      >
         <label>Lens Type Prices (₱)</label>
 
         <div className="form-row">
@@ -190,7 +231,9 @@ export default function ProductFormFields({
                 step="10"
                 placeholder="0"
                 value={form.lensTypePrices[option.value] ?? ""}
-                onChange={(e) => onLensPriceChange(option.value, e.target.value)}
+                onChange={(e) =>
+                  onLensPriceChange(option.value, e.target.value)
+                }
               />
             </div>
           ))}
@@ -206,7 +249,11 @@ export default function ProductFormFields({
         )}
       </div>
 
-      <div className={errors.coatingPrices ? "form-group form-group-error" : "form-group"}>
+      <div
+        className={
+          errors.coatingPrices ? "form-group form-group-error" : "form-group"
+        }
+      >
         <label>Coating Prices (₱)</label>
 
         <div className="form-row">
@@ -221,7 +268,9 @@ export default function ProductFormFields({
                 step="10"
                 placeholder="0"
                 value={form.coatingPrices[option.value] ?? ""}
-                onChange={(e) => onCoatingPriceChange(option.value, e.target.value)}
+                onChange={(e) =>
+                  onCoatingPriceChange(option.value, e.target.value)
+                }
               />
             </div>
           ))}
@@ -282,22 +331,44 @@ export default function ProductFormFields({
         />
       </div>
 
-      <div className={errors.imageUrl ? "form-group form-group-error" : "form-group"}>
-        <label>Image URL</label>
-
+      <div className="form-group">
+        <label>Product Image</label>
         <input
-          type="text"
-          name="imageUrl"
-          value={form.imageUrl}
-          onChange={onChange}
-          placeholder="https://example.com/image.jpg"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={(event) =>
+            onImageFileChange(event.target.files?.[0] || null)
+          }
         />
-
+        {previewUrl ? (
+          <div style={{ marginTop: 12 }}>
+            <img
+              src={previewUrl}
+              alt="Product preview"
+              style={{
+                width: 150,
+                height: 150,
+                objectFit: "cover",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+              }}
+            />
+            <div>
+              <button
+                type="button"
+                onClick={() => onImageFileChange(null)}
+                style={{ marginTop: 8 }}
+              >
+                {imageFile ? "Remove selected image" : "Keep current image"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <small>Select a JPG, PNG, or WebP image (maximum 5 MB).</small>
+        )}
         {errors.imageUrl ? (
           <small className="field-error">{errors.imageUrl}</small>
-        ) : (
-          <small>This will be stored in the product's images array.</small>
-        )}
+        ) : null}
       </div>
     </>
   );

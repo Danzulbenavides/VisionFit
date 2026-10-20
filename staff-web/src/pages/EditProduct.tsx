@@ -2,7 +2,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import apiClient from "../api/client";
-import { updateProduct, type Product } from "../api/products";
+import {
+  updateProduct,
+  uploadProductImage,
+  type Product,
+} from "../api/products";
 import ProductFormFields from "../components/ProductFormFields";
 import {
   validateProductForm,
@@ -33,10 +37,13 @@ const EditProduct = () => {
     coatingPrices: {} as Record<string, string>,
   });
 
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<FormErrors<ProductFormValues>>({});
+  const [fieldErrors, setFieldErrors] = useState<FormErrors<ProductFormValues>>(
+    {},
+  );
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
@@ -127,6 +134,22 @@ const EditProduct = () => {
     setFieldErrors((previous) => ({ ...previous, [name]: undefined }));
   };
 
+  const handleImageFileChange = (file: File | null) => {
+    if (
+      file &&
+      !["image/jpeg", "image/png", "image/webp"].includes(file.type)
+    ) {
+      setError("Choose a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (file && file.size > 5 * 1024 * 1024) {
+      setError("The image must be 5 MB or smaller.");
+      return;
+    }
+    setError("");
+    setImageFile(file);
+  };
+
   const handleLensPriceChange = (key: string, value: string) => {
     setForm((previous) => ({
       ...previous,
@@ -171,6 +194,11 @@ const EditProduct = () => {
     setSuccess("");
 
     try {
+      const uploadedImage = imageFile
+        ? await uploadProductImage(imageFile)
+        : null;
+      const imageUrl = uploadedImage?.url || form.imageUrl.trim();
+
       await updateProduct(id, {
         name: form.name.trim(),
         brand: form.brand.trim(),
@@ -183,7 +211,7 @@ const EditProduct = () => {
         frameShape: form.frameShape,
         material: form.material,
         genderCategory: form.genderCategory,
-        images: form.imageUrl.trim() ? [form.imageUrl.trim()] : [],
+        images: imageUrl ? [imageUrl] : [],
       });
 
       setSuccess("Product updated successfully.");
@@ -247,6 +275,8 @@ const EditProduct = () => {
           onChange={handleChange}
           onLensPriceChange={handleLensPriceChange}
           onCoatingPriceChange={handleCoatingPriceChange}
+          imageFile={imageFile}
+          onImageFileChange={handleImageFileChange}
         />
 
         {error && <div className="form-error">{error}</div>}

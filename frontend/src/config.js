@@ -7,5 +7,7 @@
 // `frontend/.env` containing:
 //   EXPO_PUBLIC_API_URL=http://<your-ip>:5000/api
 export const API_URL =
-    (typeof process !== "undefined" && process.env && process.env.EXPO_PUBLIC_API_URL) ||
-    "http://192.168.18.240:5000/api";
+  (typeof process !== "undefined" &&
+    process.env &&
+    process.env.EXPO_PUBLIC_API_URL) ||
+  "http://192.168.100.140:5000/api";

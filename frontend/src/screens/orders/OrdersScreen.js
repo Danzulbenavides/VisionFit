@@ -14,7 +14,8 @@ import { getOrders } from "../../api/orders";
 
 import { useFocusEffect } from "@react-navigation/native";
 
-export default function OrdersScreen({ navigation }) {
+export default function OrdersScreen({ navigation, route }) {
+  const statusFilter = route?.params?.statusFilter || null;
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,7 +52,7 @@ export default function OrdersScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       loadOrders();
-    }, []),
+    }, [statusFilter]),
   );
 
   const handleRefresh = async () => {
@@ -61,6 +62,33 @@ export default function OrdersScreen({ navigation }) {
       showLoader: false,
     });
   };
+
+  const visibleOrders = orders.filter((order) => {
+    switch (statusFilter) {
+      case "UNPAID":
+        return (
+          order.paymentStatus !== "PAID" && order.orderStatus !== "CANCELLED"
+        );
+      case "PROCESSING":
+        return order.orderStatus === "PROCESSING";
+      case "SHIPPED":
+        return order.orderStatus === "SHIPPED";
+      case "DELIVERY":
+        return ["IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"].includes(
+          order.orderStatus,
+        );
+      default:
+        return true;
+    }
+  });
+
+  const filterLabel =
+    {
+      UNPAID: "Unpaid",
+      PROCESSING: "Processing",
+      SHIPPED: "Shipped",
+      DELIVERY: "Delivery",
+    }[statusFilter] || "All Orders";
 
   if (loading) {
     return (
@@ -122,52 +150,77 @@ export default function OrdersScreen({ navigation }) {
     >
       <Text style={styles.title}>My Orders</Text>
 
-      <Text style={styles.subtitle}>Track your VisionFit purchases.</Text>
+      <Text style={styles.subtitle}>
+        {statusFilter
+          ? `Showing ${filterLabel.toLowerCase()} orders.`
+          : "Track your VisionFit purchases."}
+      </Text>
 
-      {orders.map((order) => (
+      {statusFilter ? (
         <Pressable
-          key={order._id}
-          style={[styles.card,
-            order.orderStatus === "CANCELLED" && styles.cardCancelled,
-          ]}
-          onPress={() =>
-            navigation.navigate("OrderDetails", {
-              orderId: order._id,
-            })
-          }
+          style={styles.clearFilter}
+          onPress={() => navigation.setParams({ statusFilter: undefined })}
         >
-          <View style={styles.cardHeader}>
-            <View>
-              <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+          <Text style={styles.clearFilterText}>View all orders</Text>
+        </Pressable>
+      ) : null}
 
-              <Text style={styles.date}>{formatDate(order.createdAt)}</Text>
+      {visibleOrders.length === 0 ? (
+        <View style={styles.filteredEmpty}>
+          <Text style={styles.emptyTitle}>
+            No {filterLabel.toLowerCase()} orders
+          </Text>
+          <Text style={styles.emptyText}>
+            Orders in this category will appear here.
+          </Text>
+        </View>
+      ) : (
+        visibleOrders.map((order) => (
+          <Pressable
+            key={order._id}
+            style={[
+              styles.card,
+              order.orderStatus === "CANCELLED" && styles.cardCancelled,
+            ]}
+            onPress={() =>
+              navigation.navigate("OrderDetails", {
+                orderId: order._id,
+              })
+            }
+          >
+            <View style={styles.cardHeader}>
+              <View>
+                <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+
+                <Text style={styles.date}>{formatDate(order.createdAt)}</Text>
+              </View>
+
+              <StatusBadge status={order.orderStatus} />
             </View>
 
-            <StatusBadge status={order.orderStatus} />
-          </View>
-
-          <Text style={styles.itemCount}>
-            {order.items?.length || 0}{" "}
-            {order.items?.length === 1 ? "item" : "items"}
-          </Text>
-
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total</Text>
-
-            <Text style={styles.totalValue}>
-              ₱{Number(order.total || 0).toLocaleString()}
-            </Text>
-          </View>
-
-          <View style={styles.cardFooter}>
-            <Text style={styles.payment}>
-              {formatValue(order.paymentMethod)}
+            <Text style={styles.itemCount}>
+              {order.items?.length || 0}{" "}
+              {order.items?.length === 1 ? "item" : "items"}
             </Text>
 
-            <Text style={styles.viewText}>View Details →</Text>
-          </View>
-        </Pressable>
-      ))}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total</Text>
+
+              <Text style={styles.totalValue}>
+                ₱{Number(order.total || 0).toLocaleString()}
+              </Text>
+            </View>
+
+            <View style={styles.cardFooter}>
+              <Text style={styles.payment}>
+                {formatValue(order.paymentMethod)}
+              </Text>
+
+              <Text style={styles.viewText}>View Details →</Text>
+            </View>
+          </Pressable>
+        ))
+      )}
     </ScrollView>
   );
 }
@@ -350,9 +403,20 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "700",
   },
-    
+
   cardCancelled: {
     backgroundColor: "#FDF2F2",
     borderColor: "#F3B4B4",
   },
+
+  clearFilter: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#EEEEEE",
+    marginBottom: 14,
+  },
+  clearFilterText: { fontSize: 12, fontWeight: "700", color: "#222222" },
+  filteredEmpty: { paddingVertical: 36, alignItems: "center" },
 });

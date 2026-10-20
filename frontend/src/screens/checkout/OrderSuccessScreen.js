@@ -33,20 +33,32 @@ export default function OrderSuccessScreen({ route, navigation }) {
 
       <Pressable
         style={styles.primaryButton}
-        onPress={() => navigation.navigate("Orders")}
+        onPress={() => {
+          if (order?._id) {
+            navigation.navigate("ReceiptDetails", {
+              orderId: order._id,
+              order,
+            });
+          } else {
+            navigation.navigate("Receipts");
+          }
+        }}
       >
-        <Text style={styles.primaryButtonText}>View My Orders</Text>
+        <Text style={styles.primaryButtonText}>View Receipt</Text>
       </Pressable>
 
       <Pressable
         style={styles.secondaryButton}
-        onPress={() =>
-          navigation.navigate("MainTabs", {
-            screen: "Home",
-          })
-        }
+        onPress={() => navigation.navigate("Orders")}
       >
-        <Text style={styles.secondaryButtonText}>Back to Home</Text>
+        <Text style={styles.secondaryButtonText}>View My Orders</Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.homeButton}
+        onPress={() => navigation.navigate("MainTabs", { screen: "Home" })}
+      >
+        <Text style={styles.homeButtonText}>Back to Home</Text>
       </Pressable>
     </View>
   );
@@ -152,5 +164,17 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 15,
     fontWeight: "700",
+  },
+
+  homeButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+
+  homeButtonText: {
+    color: "#666666",
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

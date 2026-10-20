@@ -14,9 +14,16 @@ import {
 import { getOrderById } from "../../api/orders";
 import { initiatePayment } from "../../api/epayments";
 
-const STEPS = ["PENDING", "PROCESSING", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"];
+const STEPS = [
+  "PENDING",
+  "PROCESSING",
+  "SHIPPED",
+  "IN_TRANSIT",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+];
 
-export default function OrderDetailsScreen({ route }) {
+export default function OrderDetailsScreen({ route, navigation }) {
   const { orderId } = route.params;
 
   const [order, setOrder] = useState(null);
@@ -50,7 +57,7 @@ export default function OrderDetailsScreen({ route }) {
     loadOrder();
   }, [orderId]);
 
-      const handlePayNow = async () => {
+  const handlePayNow = async () => {
     try {
       setPayingNow(true);
 
@@ -66,7 +73,10 @@ export default function OrderDetailsScreen({ route }) {
       const canOpen = await Linking.canOpenURL(checkoutUrl);
 
       if (!canOpen) {
-        Alert.alert("Unable to Start Payment", "The checkout link could not be opened.");
+        Alert.alert(
+          "Unable to Start Payment",
+          "The checkout link could not be opened.",
+        );
         return;
       }
 
@@ -177,7 +187,6 @@ export default function OrderDetailsScreen({ route }) {
               Reason: {order.cancellationReason}
             </Text>
           ) : null}
-
         </View>
       )}
 
@@ -275,7 +284,19 @@ export default function OrderDetailsScreen({ route }) {
         <View style={styles.divider} />
 
         <SummaryRow label="Total" value={order.total} bold />
-      </View>               
+      </View>
+
+      {order.orderStatus !== "CANCELLED" ? (
+        <Pressable
+          style={styles.receiptButton}
+          onPress={() =>
+            navigation.navigate("ReceiptDetails", { orderId: order._id })
+          }
+        >
+          <Text style={styles.receiptButtonText}>View Order Receipt</Text>
+        </Pressable>
+      ) : null}
+
       {order.paymentMethod === "E_WALLET" &&
       order.paymentStatus !== "PAID" &&
       !cancelled ? (
@@ -348,6 +369,22 @@ function formatDate(value) {
 }
 
 const styles = StyleSheet.create({
+  receiptButton: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#222222",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+  },
+
+  receiptButtonText: {
+    color: "#111111",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
   payButton: {
     height: 55,
     borderRadius: 14,
@@ -497,7 +534,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 
-    cancelledReason: {
+  cancelledReason: {
     fontSize: 12,
     color: "#7A1F1F",
     marginTop: 8,

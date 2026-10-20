@@ -15,11 +15,7 @@ import {
   View,
 } from "react-native";
 
-import {
-  forgotPassword,
-  resetPassword,
-  verifyResetCode,
-} from "../../api/auth";
+import { forgotPassword, resetPassword, verifyResetCode } from "../../api/auth";
 import useKeyboardInset from "../../hooks/useKeyboardInset";
 
 const RESEND_SECONDS = 60;
@@ -37,11 +33,12 @@ const passwordRules = (value) => [
 const toMessage = (error, fallback) =>
   error.response?.data?.error?.message || error.message || fallback;
 
-export default function ForgotPasswordScreen({ navigation }) {
+export default function ForgotPasswordScreen({ navigation, route }) {
   const keyboardInset = useKeyboardInset();
+  const fromProfile = route?.params?.fromProfile === true;
 
   const [step, setStep] = useState("email");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(route?.params?.email || "");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -50,6 +47,14 @@ export default function ForgotPasswordScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+
+  const handleBack = () => {
+    if (fromProfile && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.replace("Login");
+  };
 
   useEffect(() => {
     if (cooldown <= 0) {
@@ -192,15 +197,26 @@ export default function ForgotPasswordScreen({ navigation }) {
 
       Alert.alert(
         "Password Reset",
-        "Your password was changed. Please log in with your new password.",
+        fromProfile
+          ? "Your password was changed successfully. Return to your profile."
+          : "Your password was changed. Please log in with your new password.",
         [
           {
-            text: "Go to Log In",
-            onPress: () =>
+            text: fromProfile ? "Return to Profile" : "Go to Log In",
+            onPress: () => {
+              if (fromProfile) {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  navigation.navigate("MainTabs", { screen: "Profile" });
+                }
+                return;
+              }
               navigation.reset({
                 index: 0,
                 routes: [{ name: "Login", params: { email: email.trim() } }],
-              }),
+              });
+            },
           },
         ],
       );
@@ -218,10 +234,14 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   const renderEmailStep = () => (
     <>
-      <Text style={styles.title}>Forgot Password</Text>
+      <Text style={styles.title}>
+        {fromProfile ? "Reset Password" : "Forgot Password"}
+      </Text>
 
       <Text style={styles.subtitle}>
-        Enter the email you used to create your VisionFit account.
+        {fromProfile
+          ? "We will send a reset code to the email linked to your VisionFit account."
+          : "Enter the email you used to create your VisionFit account."}
       </Text>
 
       <TextInput
@@ -246,8 +266,10 @@ export default function ForgotPasswordScreen({ navigation }) {
         )}
       </Pressable>
 
-      <Pressable onPress={() => navigation.replace("Login")}>
-        <Text style={styles.loginLink}>Back to Log In</Text>
+      <Pressable onPress={handleBack}>
+        <Text style={styles.loginLink}>
+          {fromProfile ? "Back to Profile" : "Back to Log In"}
+        </Text>
       </Pressable>
     </>
   );
@@ -282,7 +304,10 @@ export default function ForgotPasswordScreen({ navigation }) {
         )}
       </Pressable>
 
-      <Pressable onPress={handleResend} disabled={cooldown > 0 || resendLoading}>
+      <Pressable
+        onPress={handleResend}
+        disabled={cooldown > 0 || resendLoading}
+      >
         <Text style={[styles.resend, cooldown > 0 && styles.resendDisabled]}>
           {resendLoading
             ? "Sending..."
@@ -301,8 +326,10 @@ export default function ForgotPasswordScreen({ navigation }) {
         <Text style={styles.secondaryLink}>Change email</Text>
       </Pressable>
 
-      <Pressable onPress={() => navigation.replace("Login")}>
-        <Text style={styles.loginLink}>Back to Log In</Text>
+      <Pressable onPress={handleBack}>
+        <Text style={styles.loginLink}>
+          {fromProfile ? "Back to Profile" : "Back to Log In"}
+        </Text>
       </Pressable>
     </>
   );
@@ -390,8 +417,10 @@ export default function ForgotPasswordScreen({ navigation }) {
         )}
       </Pressable>
 
-      <Pressable onPress={() => navigation.replace("Login")}>
-        <Text style={styles.loginLink}>Back to Log In</Text>
+      <Pressable onPress={handleBack}>
+        <Text style={styles.loginLink}>
+          {fromProfile ? "Back to Profile" : "Back to Log In"}
+        </Text>
       </Pressable>
     </>
   );

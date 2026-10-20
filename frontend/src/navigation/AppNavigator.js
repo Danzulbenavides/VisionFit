@@ -31,6 +31,8 @@ import OrderSuccessScreen from "../screens/checkout/OrderSuccessScreen";
 
 import OrdersScreen from "../screens/orders/OrdersScreen";
 import OrderDetailsScreen from "../screens/orders/OrderDetailsScreen";
+import ReceiptsScreen from "../screens/orders/ReceiptsScreen";
+import ReceiptDetailsScreen from "../screens/orders/ReceiptDetailsScreen";
 
 import FaceScanScreen from "../screens/scan/FaceScanScreen";
 import FaceScanHistoryScreen from "../screens/scan/FaceScanHistoryScreen";
@@ -274,6 +276,24 @@ function AppStack() {
         options={{
           title: "Order Details",
         }}
+      />
+
+      <Stack.Screen
+        name="Receipts"
+        component={ReceiptsScreen}
+        options={{ title: "Receipts" }}
+      />
+
+      <Stack.Screen
+        name="ReceiptDetails"
+        component={ReceiptDetailsScreen}
+        options={{ title: "Order Receipt" }}
+      />
+
+      <Stack.Screen
+        name="ResetPassword"
+        component={ForgotPasswordScreen}
+        options={{ headerShown: false }}
       />
 
       <Stack.Screen
