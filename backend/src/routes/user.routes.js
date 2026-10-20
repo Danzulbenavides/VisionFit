@@ -4,6 +4,7 @@ import authenticate from "../middleware/auth.middleware.js";
 import requireRole from "../middleware/role.middleware.js";
 
 import {
+  changePassword,
   getCurrentUser,
   getAllUsers,
   setUserStatus,
@@ -16,6 +17,8 @@ const router = Router();
 // =========================================
 
 router.get("/me", authenticate, getCurrentUser);
+
+router.patch("/password", authenticate, changePassword);
 
 // =========================================
 // ADMIN ONLY

@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
+import { getOrders } from "../../api/orders";
 import NotificationBell from "../../components/NotificationBell";
 
 const ACTIONS = [
@@ -78,6 +79,65 @@ const initialsAvatar = StyleSheet.create({
 
 export default function ProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
+
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const counts = React.useMemo(() => {
+    const tally = {
+      unpaid: 0,
+      processing: 0,
+      shipped: 0,
+      delivery: 0,
+    };
+
+    orders.forEach((order) => {
+      if (order.paymentStatus === "PENDING") {
+        tally.unpaid += 1;
+      }
+      if (order.orderStatus === "PROCESSING") {
+        tally.processing += 1;
+      }
+      if (order.orderStatus === "SHIPPED") {
+        tally.shipped += 1;
+      }
+      if (order.orderStatus === "DELIVERED") {
+        tally.delivery += 1;
+      }
+    });
+
+    return tally;
+  }, [orders]);
+
+  const loadOrders = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const result = await getOrders();
+
+      if (result.error) {
+        setError(result.error.message);
+        return;
+      }
+
+      setOrders(result.data || []);
+    } catch (err) {
+      console.error("Load orders error:", err);
+      setError(
+        err.response?.data?.error?.message || "Unable to load your orders.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadOrders();
+    }, [loadOrders]),
+  );
 
   const confirmSignOut = () => {
     Alert.alert(
@@ -157,19 +217,23 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         <View style={s.grid}>
-          {ACTIONS.map(([icon, label, routeName]) => (
-            <TouchableOpacity
-              style={s.action}
-              key={label}
-              activeOpacity={0.7}
-              onPress={() => openAction(routeName)}
-            >
-              <View style={s.actionIcon}>
-                <Ionicons name={icon} size={21} />
-              </View>
-              <Text style={s.actionText}>{label}</Text>
-              <Ionicons name="chevron-forward" size={15} color="#888" />
-            </TouchableOpacity>
+          {ACTIONS.map(([icon, label, routeName], index) => (
+            <React.Fragment key={label}>
+              <TouchableOpacity
+                style={s.action}
+                activeOpacity={0.7}
+                onPress={() => openAction(routeName)}
+              >
+                <View style={s.actionIcon}>
+                  <Ionicons name={icon} size={21} />
+                </View>
+                <Ionicons name="chevron-forward" size={15} color="#888" />
+              </TouchableOpacity>
+
+              {index < ACTIONS.length - 1 ? (
+                <View style={s.menuDivider} />
+              ) : null}
+            </React.Fragment>
           ))}
         </View>
 
@@ -199,6 +263,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    marginBottom: 16,
   },
   userText: { flex: 1 },
   name: { fontSize: 16, fontWeight: "900" },
@@ -208,7 +273,7 @@ const s = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 13,
     padding: 15,
-    marginTop: 12,
+    marginBottom: 16,
   },
   ordersHead: {
     flexDirection: "row",

@@ -46,6 +46,8 @@ import EducationalLessonScreen from "../screens/educational/EducationalLessonScr
 import TermsAndConditionsScreen from "../screens/legal/TermsAndConditionsScreen";
 
 import NotificationsScreen from "../screens/notifications/NotificationsScreen";
+import SettingsScreen from "../screens/settings/SettingsScreen";
+import ChangePasswordScreen from "../screens/change-password/ChangePasswordScreen";
 import NotificationBanner from "../components/NotificationBanner";
 
 import { useAuth } from "../context/AuthContext";
@@ -211,6 +213,22 @@ function AppStack() {
         component={NotificationsScreen}
         options={{
           title: "Notifications",
+        }}
+      />
+
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          title: "Settings",
+        }}
+      />
+
+      <Stack.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{
+          title: "Change Password",
         }}
       />
 

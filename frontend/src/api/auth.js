@@ -58,3 +58,12 @@ export const resetPassword = async (email, code, password) => {
 
   return response.data;
 };
+
+export const changePassword = async (currentPassword, newPassword) => {
+  const response = await apiClient.patch("/users/password", {
+    currentPassword,
+    newPassword,
+  });
+
+  return response.data;
+};
