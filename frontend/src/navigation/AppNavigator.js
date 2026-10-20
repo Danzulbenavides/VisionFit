@@ -32,6 +32,9 @@ import OrderSuccessScreen from "../screens/checkout/OrderSuccessScreen";
 import OrdersScreen from "../screens/orders/OrdersScreen";
 import OrderDetailsScreen from "../screens/orders/OrderDetailsScreen";
 
+import AddressListScreen from "../screens/addresses/AddressListScreen";
+import HelpCenterScreen from "../screens/help/HelpCenterScreen";
+
 import FaceScanScreen from "../screens/scan/FaceScanScreen";
 import FaceScanHistoryScreen from "../screens/scan/FaceScanHistoryScreen";
 import RecommendationsScreen from "../screens/recommendations/RecommendationsScreen";
@@ -44,6 +47,8 @@ import EducationalLessonScreen from "../screens/educational/EducationalLessonScr
 import TermsAndConditionsScreen from "../screens/legal/TermsAndConditionsScreen";
 
 import NotificationsScreen from "../screens/notifications/NotificationsScreen";
+import SettingsScreen from "../screens/settings/SettingsScreen";
+import ChangePasswordScreen from "../screens/change-password/ChangePasswordScreen";
 import NotificationBanner from "../components/NotificationBanner";
 
 import { useAuth } from "../context/AuthContext";
@@ -213,6 +218,22 @@ function AppStack() {
       />
 
       <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          title: "Settings",
+        }}
+      />
+
+      <Stack.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{
+          title: "Change Password",
+        }}
+      />
+
+      <Stack.Screen
         name="ProductDetails"
         component={ProductDetailsScreen}
         options={{
@@ -273,6 +294,22 @@ function AppStack() {
         component={OrderDetailsScreen}
         options={{
           title: "Order Details",
+        }}
+      />
+
+      <Stack.Screen
+        name="Addresses"
+        component={AddressListScreen}
+        options={{
+          title: "Addresses",
+        }}
+      />
+
+      <Stack.Screen
+        name="HelpCenter"
+        component={HelpCenterScreen}
+        options={{
+          title: "Help Center",
         }}
       />
 

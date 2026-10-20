@@ -14,13 +14,15 @@ import { getOrders } from "../../api/orders";
 
 import { useFocusEffect } from "@react-navigation/native";
 
-export default function OrdersScreen({ navigation }) {
+export default function OrdersScreen({ navigation, route }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  const loadOrders = async ({ showLoader = true } = {}) => {
+  const filter = route.params?.filter;
+
+  const loadOrders = useCallback(async ({ showLoader = true } = {}) => {
     try {
       if (showLoader) {
         setLoading(true);
@@ -35,7 +37,19 @@ export default function OrdersScreen({ navigation }) {
         return;
       }
 
-      setOrders(result.data || []);
+      let fetched = result.data || [];
+
+      if (filter === "unpaid") {
+        fetched = fetched.filter((order) => order.paymentStatus === "PENDING");
+      } else if (filter === "processing") {
+        fetched = fetched.filter((order) => order.orderStatus === "PROCESSING");
+      } else if (filter === "shipped") {
+        fetched = fetched.filter((order) => order.orderStatus === "SHIPPED");
+      } else if (filter === "delivery") {
+        fetched = fetched.filter((order) => order.orderStatus === "DELIVERED");
+      }
+
+      setOrders(fetched);
     } catch (err) {
       console.error("Load orders error:", err);
 
@@ -46,7 +60,7 @@ export default function OrdersScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [filter]);
 
   useFocusEffect(
     useCallback(() => {

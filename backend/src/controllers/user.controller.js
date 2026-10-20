@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import bcrypt from "bcryptjs";
+
 import User from "../models/User.js";
 import { recordAuditLog } from "./auditLog.controller.js";
 
@@ -64,6 +66,103 @@ export const getAllUsers = async (req, res) => {
       data: null,
       error: {
         message: "Failed to retrieve users",
+      },
+    });
+  }
+};
+
+const isStrongPassword = (password) =>
+  password.length >= 8 &&
+  /[A-Z]/.test(password) &&
+  /[a-z]/.test(password) &&
+  /\d/.test(password) &&
+  /[^A-Za-z0-9]/.test(password);
+
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (
+      typeof currentPassword !== "string" ||
+      typeof newPassword !== "string"
+    ) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "Invalid input types",
+        },
+      });
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        data: null,
+        error: {
+          message: "User not found",
+        },
+      });
+    }
+
+    if (!user.passwordHash) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "This account does not have a password set.",
+        },
+      });
+    }
+
+    const currentPasswordMatches = await bcrypt.compare(
+      currentPassword,
+      user.passwordHash,
+    );
+
+    if (!currentPasswordMatches) {
+      return res.status(401).json({
+        data: null,
+        error: {
+          message: "Current password is incorrect.",
+        },
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message: "New password must be different from your current password.",
+        },
+      });
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({
+        data: null,
+        error: {
+          message:
+            "Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.",
+        },
+      });
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    await user.save();
+
+    return res.status(200).json({
+      data: {
+        changed: true,
+      },
+      error: null,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(error.statusCode || 500).json({
+      data: null,
+      error: {
+        message: error.message || "Password change failed",
       },
     });
   }
