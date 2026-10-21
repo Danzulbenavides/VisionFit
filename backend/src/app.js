@@ -49,33 +49,48 @@ app.use(helmet());
 // CORS
 // -----------------------------------------
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
+const defaultLocalOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://localhost:5174",
   "http://127.0.0.1:5174",
-].filter(Boolean);
+];
+
+// Set CORS_ALLOWED_ORIGINS to a comma-separated list of exact origins.
+// Example: https://admin.example.com,https://staff.example.com,https://app.example.com
+// FRONTEND_URL remains supported for backward compatibility.
+const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+console.log("[CORS diagnostic] Configured origins:", JSON.stringify(configuredOrigins));
+console.log(
+  "[CORS diagnostic] Admin origin allowed:",
+  configuredOrigins.includes("https://visionfit-admin.onrender.com") ||
+    process.env.FRONTEND_URL === "https://visionfit-admin.onrender.com",
+);
+const allowedOrigins = new Set(
+  [
+    ...defaultLocalOrigins,
+    process.env.FRONTEND_URL,
+    ...configuredOrigins,
+  ].filter(Boolean),
+);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // React Native requests may not send an Origin header.
-      if (!origin) {
-        return callback(null, true);
-      }
+      // Mobile/native clients may not send an Origin header.
+      if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+      if (allowedOrigins.has(origin)) return callback(null, true);
 
+      // Do not reflect or allow unapproved browser origins.
       return callback(new Error(`CORS blocked origin: ${origin}`));
     },
-
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-
     allowedHeaders: ["Content-Type", "Authorization"],
-
     credentials: true,
   }),
 );
@@ -83,7 +98,6 @@ app.use(
 // -----------------------------------------
 // E-Payment
 // -----------------------------------------
-
 
 app.use(
   "/api/epayments/webhook",
