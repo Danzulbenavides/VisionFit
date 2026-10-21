@@ -1,100 +1,51 @@
-import dns from "node:dns";
-import nodemailer from "nodemailer";
+import axios from "axios";
 
-const SMTP_HOST = "smtp.gmail.com";
-const SMTP_PORT = 587;
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 export const isEmailConfigured = () =>
-  Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
+  Boolean(process.env.BREVO_API_KEY && process.env.EMAIL_FROM);
 
-// Why this exists: nodemailer's internal resolver prefers IPv6, and this
-// network's IPv6 path to smtp.gmail.com stalls. On top of that nodemailer's
-// default connectionTimeout is 2 minutes, so a cold send used to sit ~110s
-// before falling back to IPv4. Resolving the IPv4 address ourselves (the
-// system resolver answers in <200ms) and handing nodemailer a literal IP
-// with the correct TLS SRI name removes that stall: cold sends ~3s, warm
-// sends ~1.5s on the pooled connection.
-const resolveIPv4 = () =>
-  new Promise((resolve) => {
-    dns.lookup(SMTP_HOST, { family: 4 }, (error, address) => {
-      resolve(error ? null : address);
-    });
-  });
-
-// One shared, pooled transporter: the TLS+AUTH handshake happens once and
-// every later send reuses the live connection instead of re-handshaking.
-let sharedTransporter = null;
-let creatingTransporter = null;
-let resolvedIp = null;
-
-const dropTransporter = (transporter) => {
-  if (sharedTransporter !== transporter) {
-    return;
+const sendEmail = async ({ to, subject, text, html }) => {
+  if (!isEmailConfigured()) {
+    throw new Error("Email service is not configured.");
   }
-  sharedTransporter = null;
-  resolvedIp = null; // Gmail rotates IPs; re-resolve on next create
+
   try {
-    transporter.close();
-  } catch {
-    // already closed
-  }
-};
-
-const createTransporter = () => {
-  if (sharedTransporter) {
-    return Promise.resolve(sharedTransporter);
-  }
-
-  if (!creatingTransporter) {
-    // Single-flight: concurrent first sends share one creation instead of
-    // racing and building duplicate transporters.
-    creatingTransporter = (async () => {
-      if (!resolvedIp) {
-        resolvedIp = await resolveIPv4();
-      }
-
-      const ip = resolvedIp;
-
-      const transporter = nodemailer.createTransport({
-        host: ip || SMTP_HOST,
-        servername: ip ? SMTP_HOST : undefined,
-        port: SMTP_PORT,
-        secure: false,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+    await axios.post(
+      BREVO_API_URL,
+      {
+        sender: {
+          name: process.env.EMAIL_FROM_NAME || "VisionFit",
+          email: process.env.EMAIL_FROM,
         },
-        pool: true,
-        maxConnections: 1,
-        keepAlive: true,
-        connectionTimeout: 10 * 1000,
-        greetingTimeout: 10 * 1000,
-        socketTimeout: 60 * 1000,
-      });
-
-      transporter.on("error", (error) => {
-        console.error("SMTP transporter error:", error.message);
-        // If the cached connection/IP went bad, drop it so the next send
-        // re-resolves and reconnects fresh.
-        dropTransporter(transporter);
-      });
-
-      sharedTransporter = transporter;
-      return transporter;
-    })().finally(() => {
-      creatingTransporter = null;
-    });
+        to: [{ email: to }],
+        subject,
+        textContent: text,
+        htmlContent: html,
+      },
+      {
+        headers: {
+          accept: "application/json",
+          "api-key": process.env.BREVO_API_KEY,
+          "content-type": "application/json",
+        },
+        timeout: 15000,
+      },
+    );
+  } catch (error) {
+    console.error(
+      "Brevo transactional email failed:",
+      error.response?.status || error.code || error.message,
+    );
+    throw new Error("Could not send email through Brevo.");
   }
-
-  return creatingTransporter;
 };
-
 export const sendVerificationEmail = async ({ to, firstName, code }) => {
   if (!isEmailConfigured()) {
     throw new Error("Email service is not configured.");
   }
 
-  const transporter = await createTransporter();
+
 
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #E5E5E5; border-radius: 12px;">
@@ -114,8 +65,7 @@ export const sendVerificationEmail = async ({ to, firstName, code }) => {
     </div>
   `;
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+  await sendEmail({
     to,
     subject: "Your VisionFit verification code",
     text: `Your VisionFit verification code is: ${code}. It expires in 10 minutes.`,
@@ -128,7 +78,7 @@ export const sendPasswordResetEmail = async ({ to, firstName, code }) => {
     throw new Error("Email service is not configured.");
   }
 
-  const transporter = await createTransporter();
+
 
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #E5E5E5; border-radius: 12px;">
@@ -148,8 +98,7 @@ export const sendPasswordResetEmail = async ({ to, firstName, code }) => {
     </div>
   `;
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+  await sendEmail({
     to,
     subject: "Your VisionFit password reset code",
     text: `Your VisionFit password reset code is: ${code}. It expires in 10 minutes.`,
@@ -167,7 +116,7 @@ export const sendPinResetEmail = async ({
     throw new Error("Email service is not configured.");
   }
 
-  const transporter = await createTransporter();
+
 
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #E5E5E5; border-radius: 12px;">
@@ -187,8 +136,7 @@ export const sendPinResetEmail = async ({
     </div>
   `;
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+  await sendEmail({
     to,
     subject: "Your VisionFit PIN reset code",
     text: `Your VisionFit PIN reset code is: ${code}. It resets the PIN for ${accountEmail} and expires in 10 minutes.`,
