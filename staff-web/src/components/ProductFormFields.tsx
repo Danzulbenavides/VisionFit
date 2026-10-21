@@ -29,6 +29,9 @@ interface Props {
   onCoatingPriceChange: (key: string, value: string) => void;
   imageFile: File | null;
   onImageFileChange: (file: File | null) => void;
+  tryOnImageFile: File | null;
+  onTryOnImageFileChange: (file: File | null) => void;
+  onTryOnImageUrlChange: (value: string) => void;
 }
 
 function RequiredMark() {
@@ -79,8 +82,12 @@ export default function ProductFormFields({
   onCoatingPriceChange,
   imageFile,
   onImageFileChange,
+  tryOnImageFile,
+  onTryOnImageFileChange,
+  onTryOnImageUrlChange,
 }: Props) {
   const [previewUrl, setPreviewUrl] = useState(form.imageUrl);
+  const [tryOnPreviewUrl, setTryOnPreviewUrl] = useState(form.tryOnImage);
 
   useEffect(() => {
     if (!imageFile) {
@@ -92,6 +99,17 @@ export default function ProductFormFields({
     setPreviewUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [imageFile, form.imageUrl]);
+
+  useEffect(() => {
+    if (!tryOnImageFile) {
+      setTryOnPreviewUrl(form.tryOnImage);
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(tryOnImageFile);
+    setTryOnPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [tryOnImageFile, form.tryOnImage]);
 
   // Brand is a dropdown. A brand already saved on a product that is not in
   // the list is still shown so editing never wipes it.
@@ -368,6 +386,52 @@ export default function ProductFormFields({
         )}
         {errors.imageUrl ? (
           <small className="field-error">{errors.imageUrl}</small>
+        ) : null}
+      </div>
+      <div className="form-group">
+        <label>Virtual Try-On Frame Image (Optional)</label>
+        <input
+          type="file"
+          accept="image/png,image/webp"
+          onChange={(event) =>
+            onTryOnImageFileChange(event.target.files?.[0] || null)
+          }
+        />
+        <small>
+          Upload a transparent PNG or WebP containing only the glasses frame.
+          Maximum 5 MB. A regular product photo is not a suitable frame asset.
+        </small>
+        {tryOnPreviewUrl ? (
+          <div style={{ marginTop: 12 }}>
+            <img
+              src={tryOnPreviewUrl}
+              alt="Virtual Try-On frame preview"
+              style={{
+                width: 150,
+                height: 100,
+                objectFit: "contain",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+              }}
+            />
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  onTryOnImageFileChange(null);
+                  onTryOnImageUrlChange("");
+                }}
+                style={{ marginTop: 8 }}
+              >
+                Remove frame asset
+              </button>
+            </div>
+          </div>
+        ) : (
+          <small>No frame asset configured. Virtual Try-On will remain unavailable for this product until one is uploaded.</small>
+        )}
+        {errors.tryOnImage ? (
+          <small className="field-error">{errors.tryOnImage}</small>
         ) : null}
       </div>
     </>

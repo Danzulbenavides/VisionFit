@@ -15,6 +15,7 @@ export interface Product {
   genderCategory?: string;
   imageUrl?: string;
   images?: string[];
+  tryOnImage?: string | null;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -90,6 +91,7 @@ export interface CreateProductData {
   material: string;
   genderCategory: string;
   images: string[];
+  tryOnImage?: string;
 }
 
 export const createProduct = async (
@@ -112,6 +114,7 @@ export interface UpdateProductData {
   material?: string;
   genderCategory?: string;
   images?: string[];
+  tryOnImage?: string;
 }
 
 export const updateProduct = async (

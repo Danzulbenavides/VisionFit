@@ -255,6 +255,7 @@ export const updateProduct = async (req, res) => {
       "genderCategory",
       "imageUrl",
       "images",
+      "tryOnImage",
     ];
 
     const updates = {};

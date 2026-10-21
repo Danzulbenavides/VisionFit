@@ -121,6 +121,7 @@ export interface ProductFormValues {
   material: string;
   genderCategory: string;
   imageUrl: string;
+  tryOnImage: string;
   lensTypePrices: Record<string, string>;
   coatingPrices: Record<string, string>;
 }
@@ -197,6 +198,11 @@ export const validateProductForm = (
   const url = form.imageUrl.trim();
   if (url && !/^https?:\/\/\S+\.\S+/i.test(url)) {
     errors.imageUrl = "Image URL must start with http:// or https://";
+  }
+
+  const tryOnUrl = form.tryOnImage.trim();
+  if (tryOnUrl && !/^https?:\/\/\S+\.\S+/i.test(tryOnUrl)) {
+    errors.tryOnImage = "Virtual Try-On image must be an http:// or https:// URL.";
   }
 
   return errors;

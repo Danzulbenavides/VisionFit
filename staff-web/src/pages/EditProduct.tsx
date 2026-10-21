@@ -33,11 +33,13 @@ const EditProduct = () => {
     material: "",
     genderCategory: "",
     imageUrl: "",
+    tryOnImage: "",
     lensTypePrices: {} as Record<string, string>,
     coatingPrices: {} as Record<string, string>,
   });
 
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [tryOnImageFile, setTryOnImageFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -85,6 +87,7 @@ const EditProduct = () => {
           material: loadedProduct.material || "",
           genderCategory: loadedProduct.genderCategory || "",
           imageUrl: loadedProduct.images?.[0] || "",
+          tryOnImage: loadedProduct.tryOnImage || "",
           lensTypePrices: Object.fromEntries(
             LENS_TYPE_OPTIONS.map((option) => [
               option.value,
@@ -150,6 +153,26 @@ const EditProduct = () => {
     setImageFile(file);
   };
 
+  const handleTryOnImageFileChange = (file: File | null) => {
+    if (file && !["image/png", "image/webp"].includes(file.type)) {
+      setTryOnImageFile(null);
+      setError("Choose a transparent PNG or WebP frame image.");
+      return;
+    }
+    if (file && file.size > 5 * 1024 * 1024) {
+      setTryOnImageFile(null);
+      setError("The frame image must be 5 MB or smaller.");
+      return;
+    }
+    setError("");
+    setTryOnImageFile(file);
+  };
+
+  const handleTryOnImageUrlChange = (value: string) => {
+    setForm((previous) => ({ ...previous, tryOnImage: value }));
+    setFieldErrors((previous) => ({ ...previous, tryOnImage: undefined }));
+  };
+
   const handleLensPriceChange = (key: string, value: string) => {
     setForm((previous) => ({
       ...previous,
@@ -197,6 +220,9 @@ const EditProduct = () => {
       const uploadedImage = imageFile
         ? await uploadProductImage(imageFile)
         : null;
+      const uploadedTryOnImage = tryOnImageFile
+        ? await uploadProductImage(tryOnImageFile)
+        : null;
       const imageUrl = uploadedImage?.url || form.imageUrl.trim();
 
       await updateProduct(id, {
@@ -212,6 +238,7 @@ const EditProduct = () => {
         material: form.material,
         genderCategory: form.genderCategory,
         images: imageUrl ? [imageUrl] : [],
+        tryOnImage: uploadedTryOnImage?.url || form.tryOnImage.trim(),
       });
 
       setSuccess("Product updated successfully.");
@@ -277,6 +304,9 @@ const EditProduct = () => {
           onCoatingPriceChange={handleCoatingPriceChange}
           imageFile={imageFile}
           onImageFileChange={handleImageFileChange}
+          tryOnImageFile={tryOnImageFile}
+          onTryOnImageFileChange={handleTryOnImageFileChange}
+          onTryOnImageUrlChange={handleTryOnImageUrlChange}
         />
 
         {error && <div className="form-error">{error}</div>}
