@@ -1,7 +1,13 @@
-import axios from "axios";
+﻿import axios from "axios";
 import FormData from "form-data";
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://127.0.0.1:8000";
+const configuredAiServiceUrl = process.env.AI_SERVICE_URL?.trim();
+const normalizedAiServiceUrl = configuredAiServiceUrl
+  ? (/^https?:\/\//i.test(configuredAiServiceUrl)
+      ? configuredAiServiceUrl
+      : `http://${configuredAiServiceUrl}`)
+  : "http://127.0.0.1:8000";
+const AI_SERVICE_URL = normalizedAiServiceUrl.replace(/\/+$/, "");
 
 export async function analyzeFaceImage(imageBuffer, filename = "face.jpg") {
   const form = new FormData();

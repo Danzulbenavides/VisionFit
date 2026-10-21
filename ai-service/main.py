@@ -768,3 +768,6 @@ async def analyze_face_endpoint(
             "visible, and try again."
         )
     )
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "visionfit-ai"}
