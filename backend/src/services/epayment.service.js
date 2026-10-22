@@ -92,20 +92,24 @@ export const verifyWebhookSignature = (rawBody, signatureHeader) => {
   const parts = Object.fromEntries(
     signatureHeader
       .split(",")
-      .map((part) => part.split("="))
+      .map((part) => {
+        const separator = part.indexOf("=");
+
+        if (separator === -1) {
+          return [null, null];
+        }
+
+        return [
+          part.slice(0, separator).trim(),
+          part.slice(separator + 1).trim(),
+        ];
+      })
       .filter(([key, value]) => key && value),
   );
 
   const { t, te, li } = parts;
 
-  if (!t) {
-    return false;
-  }
-
-  const isLiveMode = process.env.NODE_ENV === "production";
-  const providedSignature = isLiveMode ? li : te;
-
-  if (!providedSignature) {
+  if (!t || (!te && !li)) {
     return false;
   }
 
@@ -117,11 +121,13 @@ export const verifyWebhookSignature = (rawBody, signatureHeader) => {
     .digest("hex");
 
   const expectedBuffer = Buffer.from(expectedSignature, "utf8");
-  const providedBuffer = Buffer.from(providedSignature, "utf8");
 
-  if (expectedBuffer.length !== providedBuffer.length) {
-    return false;
-  }
+  return [te, li].filter(Boolean).some((signature) => {
+    const providedBuffer = Buffer.from(signature, "utf8");
 
-  return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+    return (
+      expectedBuffer.length === providedBuffer.length &&
+      crypto.timingSafeEqual(expectedBuffer, providedBuffer)
+    );
+  });
 };
